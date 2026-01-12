@@ -94,6 +94,31 @@ public class GlobalSearchService : IGlobalSearchService
             });
         }
 
+        // Search Skippers
+        var skippers = await _context.Skippers
+            .Where(s => 
+                s.Nome.ToLower().Contains(term) ||
+                s.Cognome.ToLower().Contains(term) ||
+                s.FullName.ToLower().Contains(term) ||
+                s.Telefono.Contains(term) ||
+                (s.Email != null && s.Email.ToLower().Contains(term)) ||
+                s.NumeroPatenteNautica.Contains(term))
+            .Take(5)
+            .ToListAsync();
+
+        foreach (var skipper in skippers)
+        {
+            results.Add(new SearchResult
+            {
+                Id = skipper.Id.ToString(),
+                Title = skipper.FullName,
+                Subtitle = $"Telefono: {skipper.Telefono}" + (skipper.Email != null ? $" | Email: {skipper.Email}" : "") + $" | Patente: {skipper.NumeroPatenteNautica}",
+                Type = SearchResultType.Skipper,
+                Icon = "oi-person",
+                NavigationUrl = "/skippers"
+            });
+        }
+
         return results.OrderBy(r => r.Type).ThenBy(r => r.Title).ToList();
     }
 }

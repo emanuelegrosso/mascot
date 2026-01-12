@@ -21,5 +21,6 @@ public enum SearchResultType
 {
     Customer,
     Booking,
-    Boat
+    Boat,
+    Skipper
 }
