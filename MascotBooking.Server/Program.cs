@@ -10,6 +10,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
+// Add HttpClient for API calls (configured for Blazor Server)
+builder.Services.AddScoped<HttpClient>(sp =>
+{
+    var navigationManager = sp.GetRequiredService<NavigationManager>();
+    return new HttpClient
+    {
+        BaseAddress = new Uri(navigationManager.BaseUri)
+    };
+});
+
 // Database
 var dbPath = Path.Combine(builder.Environment.ContentRootPath, "data", "mascot.db");
 Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
@@ -25,6 +35,30 @@ builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<ISkipperService, SkipperService>();
 builder.Services.AddScoped<IBoatPriceService, BoatPriceService>();
 
+// Storage Service - Choose one: Local, GoogleDrive, or DropboxStorageService
+// Configure in appsettings.json under "Storage" section
+var storageProvider = builder.Configuration["Storage:Provider"] ?? "Local";
+if (storageProvider.Equals("Local", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<IStorageService, LocalStorageService>();
+}
+else if (storageProvider.Equals("GoogleDrive", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<IStorageService, GoogleDriveStorageService>();
+}
+else if (storageProvider.Equals("Dropbox", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<IStorageService, DropboxStorageService>();
+}
+else
+{
+    // Fallback: use a mock service that doesn't actually upload (for development)
+    builder.Services.AddScoped<IStorageService, MockStorageService>();
+}
+
+// Add controllers for API endpoints
+builder.Services.AddControllers();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -39,8 +73,23 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 
+// Serve local storage files if Local storage is configured
+if (app.Configuration["Storage:Provider"]?.Equals("Local", StringComparison.OrdinalIgnoreCase) == true)
+{
+    var storagePath = app.Configuration["Storage:Local:BasePath"];
+    if (!string.IsNullOrEmpty(storagePath) && Directory.Exists(storagePath))
+    {
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(storagePath),
+            RequestPath = "/storage"
+        });
+    }
+}
+
 app.UseRouting();
 
+app.MapControllers();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
@@ -114,6 +163,11 @@ using (var scope = app.Services.CreateScope())
     if (!db.Customers.Any() && !db.Boats.Any() && !db.Skippers.Any() && !db.BoatPrices.Any())
     {
         SeedData.Initialize(db);
+    }
+    else
+    {
+        // Add current week bookings even if database already exists
+        SeedData.AddCurrentWeekBookings(db);
     }
 }
 

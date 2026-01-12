@@ -4,6 +4,8 @@
 @inject IBookingService BookingService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject HttpClient Http
+@using System.Net.Http.Json
 
 <PageTitle>Scheda Cliente</PageTitle>
 
@@ -435,18 +437,86 @@
 
     private async Task HandleDocumentUpload(InputFileChangeEventArgs e)
     {
-        // TODO: Implementare upload file
-        // Per ora solo mockup
-        customer.DocumentFileUrl = "/uploads/documents/" + e.File.Name;
-        StateHasChanged();
+        try
+        {
+            if (e.File == null) return;
+
+            using var content = new MultipartFormDataContent();
+            using var fileStream = e.File.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10MB max
+            content.Add(new StreamContent(fileStream), "file", e.File.Name);
+            content.Add(new StringContent("documents"), "folder");
+
+            var response = await Http.PostAsync("/api/FileUpload/upload", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<UploadResult>();
+                if (result != null)
+                {
+                    customer.DocumentFileUrl = result.url;
+                    customer.HasDocument = true;
+                    await JSRuntime.InvokeVoidAsync("console.log", "Documento caricato con successo");
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JSRuntime.InvokeVoidAsync("alert", $"Errore nel caricamento: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Errore: {ex.Message}");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
     }
 
     private async Task HandleLicenseUpload(InputFileChangeEventArgs e)
     {
-        // TODO: Implementare upload file
-        // Per ora solo mockup
-        customer.LicenseFileUrl = "/uploads/licenses/" + e.File.Name;
-        StateHasChanged();
+        try
+        {
+            if (e.File == null) return;
+
+            using var content = new MultipartFormDataContent();
+            using var fileStream = e.File.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10MB max
+            content.Add(new StreamContent(fileStream), "file", e.File.Name);
+            content.Add(new StringContent("licenses"), "folder");
+
+            var response = await Http.PostAsync("/api/FileUpload/upload", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<UploadResult>();
+                if (result != null)
+                {
+                    customer.LicenseFileUrl = result.url;
+                    customer.HasNauticalLicense = true;
+                    await JSRuntime.InvokeVoidAsync("console.log", "Patente caricata con successo");
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JSRuntime.InvokeVoidAsync("alert", $"Errore nel caricamento: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Errore: {ex.Message}");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private class UploadResult
+    {
+        public string url { get; set; } = string.Empty;
+        public string fileName { get; set; } = string.Empty;
     }
 
     private string GetLastBookingDate()
@@ -470,15 +540,41 @@
             var imageData = await JSRuntime.InvokeAsync<string>("captureFromCamera");
             if (!string.IsNullOrEmpty(imageData))
             {
-                // Salva come base64 temporaneamente (in produzione salvare su server)
-                customer.DocumentFileUrl = imageData; // Base64 data URL
-                await JSRuntime.InvokeVoidAsync("console.log", "Documento catturato dalla camera");
-                StateHasChanged();
+                // Upload base64 image to cloud storage
+                var request = new Base64UploadRequest
+                {
+                    Data = imageData,
+                    FileName = $"document_{customer.Id}_{DateTime.UtcNow:yyyyMMddHHmmss}.jpg",
+                    ContentType = "image/jpeg",
+                    Folder = "documents"
+                };
+
+                var response = await Http.PostAsJsonAsync("/api/FileUpload/upload-base64", request);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<UploadResult>();
+                    if (result != null)
+                    {
+                        customer.DocumentFileUrl = result.url;
+                        customer.HasDocument = true;
+                        await JSRuntime.InvokeVoidAsync("console.log", "Documento caricato con successo");
+                    }
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    await JSRuntime.InvokeVoidAsync("alert", $"Errore nel caricamento: {error}");
+                }
             }
         }
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Errore: {ex.Message}. Usa 'Carica File' per selezionare un'immagine.");
+        }
+        finally
+        {
+            StateHasChanged();
         }
     }
 
@@ -489,16 +585,50 @@
             var imageData = await JSRuntime.InvokeAsync<string>("captureFromCamera");
             if (!string.IsNullOrEmpty(imageData))
             {
-                // Salva come base64 temporaneamente (in produzione salvare su server)
-                customer.LicenseFileUrl = imageData; // Base64 data URL
-                await JSRuntime.InvokeVoidAsync("console.log", "Patente catturata dalla camera");
-                StateHasChanged();
+                // Upload base64 image to cloud storage
+                var request = new Base64UploadRequest
+                {
+                    Data = imageData,
+                    FileName = $"license_{customer.Id}_{DateTime.UtcNow:yyyyMMddHHmmss}.jpg",
+                    ContentType = "image/jpeg",
+                    Folder = "licenses"
+                };
+
+                var response = await Http.PostAsJsonAsync("/api/FileUpload/upload-base64", request);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<UploadResult>();
+                    if (result != null)
+                    {
+                        customer.LicenseFileUrl = result.url;
+                        customer.HasNauticalLicense = true;
+                        await JSRuntime.InvokeVoidAsync("console.log", "Patente caricata con successo");
+                    }
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    await JSRuntime.InvokeVoidAsync("alert", $"Errore nel caricamento: {error}");
+                }
             }
         }
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Errore: {ex.Message}. Usa 'Carica File' per selezionare un'immagine.");
         }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private class Base64UploadRequest
+    {
+        public string Data { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public string? ContentType { get; set; }
+        public string? Folder { get; set; }
     }
 
     private string GetStatusBadgeColor(BookingStatus status)

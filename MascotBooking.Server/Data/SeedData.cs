@@ -602,29 +602,32 @@ public static class SeedData
                     var duration = weekRandom.Next(4, 8);
                     var endHour = Math.Min(startHour + duration, 20);
                     
-                    // Stati realistici: passato = pagata/rientrata, oggi/futuro = confermata/in attesa
+                    // Stati realistici: passato = pagata/completata, oggi/futuro = confermata/opzionata
                     BookingStatus status;
                     if (isPast)
                     {
-                        status = weekRandom.Next(0, 2) == 0 ? BookingStatus.Pagata : BookingStatus.Confermata;
+                        status = weekRandom.Next(0, 3) switch
+                        {
+                            0 => BookingStatus.Pagata,
+                            1 => BookingStatus.Completata,
+                            _ => BookingStatus.Confermata
+                        };
                     }
                     else if (isToday)
                     {
                         status = weekRandom.Next(0, 3) switch
                         {
                             0 => BookingStatus.Confermata,
-                            1 => BookingStatus.InAttesa,
+                            1 => BookingStatus.Opzionata,
                             _ => BookingStatus.Pagata
                         };
                     }
                     else
                     {
-                        status = weekRandom.Next(0, 2) == 0 ? BookingStatus.Confermata : BookingStatus.InAttesa;
+                        status = weekRandom.Next(0, 2) == 0 ? BookingStatus.Confermata : BookingStatus.Opzionata;
                     }
 
-                    var standardPrice = boat.Type == BoatType.Gommone
-                        ? (boat.DailyPrice ?? 0)
-                        : (boat.AdultPrice ?? 0) * weekRandom.Next(2, 7);
+                    var standardPrice = 100m; // Prezzo standard sempre 100€
 
                     currentWeekBookings.Add(new Booking
                     {
@@ -670,25 +673,28 @@ public static class SeedData
                     BookingStatus status;
                     if (isPast)
                     {
-                        status = weekRandom.Next(0, 2) == 0 ? BookingStatus.Pagata : BookingStatus.Confermata;
+                        status = weekRandom.Next(0, 3) switch
+                        {
+                            0 => BookingStatus.Pagata,
+                            1 => BookingStatus.Completata,
+                            _ => BookingStatus.Confermata
+                        };
                     }
                     else if (isToday)
                     {
                         status = weekRandom.Next(0, 3) switch
                         {
                             0 => BookingStatus.Confermata,
-                            1 => BookingStatus.InAttesa,
+                            1 => BookingStatus.Opzionata,
                             _ => BookingStatus.Pagata
                         };
                     }
                     else
                     {
-                        status = weekRandom.Next(0, 2) == 0 ? BookingStatus.Confermata : BookingStatus.InAttesa;
+                        status = weekRandom.Next(0, 2) == 0 ? BookingStatus.Confermata : BookingStatus.Opzionata;
                     }
 
-                    var standardPrice = boat.Type == BoatType.Gommone
-                        ? (boat.DailyPrice ?? 0)
-                        : (boat.AdultPrice ?? 0) * weekRandom.Next(2, 6);
+                    var standardPrice = 100m; // Prezzo standard sempre 100€
 
                     currentWeekBookings.Add(new Booking
                     {
@@ -722,5 +728,190 @@ public static class SeedData
 
         context.Bookings.AddRange(currentWeekBookings);
         context.SaveChanges();
+    }
+
+    /// <summary>
+    /// Aggiunge prenotazioni per la settimana corrente (anche se il database esiste già)
+    /// </summary>
+    public static void AddCurrentWeekBookings(AppDbContext context)
+    {
+        var customers = context.Customers.ToList();
+        var boats = context.Boats.Where(b => b.IsActive).ToList();
+
+        if (!customers.Any() || !boats.Any())
+        {
+            return; // Non ci sono clienti o barche
+        }
+
+        var currentDate = DateTime.Today;
+        var currentWeekStart = currentDate.AddDays(-(int)currentDate.DayOfWeek + (int)DayOfWeek.Monday);
+        if (currentWeekStart > currentDate)
+        {
+            currentWeekStart = currentWeekStart.AddDays(-7);
+        }
+        var currentWeekEnd = currentWeekStart.AddDays(6);
+
+        // Verifica se ci sono già prenotazioni per questa settimana
+        var existingBookings = context.Bookings
+            .Where(b => b.BookingDates.Any(bd => bd.Date >= currentWeekStart && bd.Date <= currentWeekEnd))
+            .ToList();
+
+        if (existingBookings.Count > 10)
+        {
+            return; // Già abbastanza prenotazioni per questa settimana
+        }
+
+        var weekRandom = new Random((int)DateTime.Now.Ticks);
+        var currentWeekBookings = new List<Booking>();
+
+        for (var date = currentWeekStart; date <= currentWeekEnd; date = date.AddDays(1))
+        {
+            var isWeekend = date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday;
+            var isPast = date < currentDate;
+            var isToday = date == currentDate;
+            var isFuture = date > currentDate;
+
+            // Conta prenotazioni esistenti per questo giorno
+            var existingForDay = existingBookings.Count(b => b.BookingDates.Any(bd => bd.Date == date));
+            
+            if (isWeekend)
+            {
+                // Weekend: 4-7 prenotazioni totali
+                var targetCount = weekRandom.Next(4, 8);
+                var toAdd = Math.Max(0, targetCount - existingForDay);
+                
+                for (int i = 0; i < toAdd; i++)
+                {
+                    var customer = customers[weekRandom.Next(customers.Count)];
+                    var boat = boats[weekRandom.Next(boats.Count)];
+                    var startHour = weekRandom.Next(8, 16);
+                    var duration = weekRandom.Next(4, 8);
+                    var endHour = Math.Min(startHour + duration, 20);
+                    
+                    BookingStatus status;
+                    if (isPast)
+                    {
+                        status = weekRandom.Next(0, 3) switch
+                        {
+                            0 => BookingStatus.Pagata,
+                            1 => BookingStatus.Completata,
+                            _ => BookingStatus.Confermata
+                        };
+                    }
+                    else if (isToday)
+                    {
+                        status = weekRandom.Next(0, 3) switch
+                        {
+                            0 => BookingStatus.Confermata,
+                            1 => BookingStatus.Opzionata,
+                            _ => BookingStatus.Pagata
+                        };
+                    }
+                    else
+                    {
+                        status = weekRandom.Next(0, 2) == 0 ? BookingStatus.Confermata : BookingStatus.Opzionata;
+                    }
+
+                    currentWeekBookings.Add(new Booking
+                    {
+                        Type = boat.Type == BoatType.Gommone ? BookingType.Gommone : BookingType.Escursione,
+                        CustomerId = customer.Id,
+                        BoatId = boat.Id,
+                        Adults = weekRandom.Next(2, Math.Min(boat.Capacity, 6)),
+                        Children = boat.Type == BoatType.Yacht ? weekRandom.Next(0, 3) : null,
+                        StandardPrice = 100m,
+                        ActualPrice = 100m,
+                        Status = status,
+                        Notes = $"Prenotazione weekend {date:dd/MM/yyyy}",
+                        CreatedAt = DateTime.UtcNow.AddDays(-weekRandom.Next(1, 15)),
+                        BookingDates = new List<BookingDate>
+                        {
+                            new BookingDate
+                            {
+                                Date = date,
+                                StartTime = new TimeSpan(startHour, 0, 0),
+                                EndTime = new TimeSpan(endHour, 0, 0),
+                                IsReturned = isPast && weekRandom.Next(0, 3) > 0,
+                                ReturnedAt = isPast && weekRandom.Next(0, 3) > 0 
+                                    ? DateTime.UtcNow.AddHours(-weekRandom.Next(1, 12))
+                                    : null
+                            }
+                        }
+                    });
+                }
+            }
+            else
+            {
+                // Feriali: 2-5 prenotazioni totali
+                var targetCount = weekRandom.Next(2, 6);
+                var toAdd = Math.Max(0, targetCount - existingForDay);
+                
+                for (int i = 0; i < toAdd; i++)
+                {
+                    var customer = customers[weekRandom.Next(customers.Count)];
+                    var boat = boats[weekRandom.Next(boats.Count)];
+                    var startHour = weekRandom.Next(9, 15);
+                    var duration = weekRandom.Next(4, 7);
+                    var endHour = Math.Min(startHour + duration, 19);
+                    
+                    BookingStatus status;
+                    if (isPast)
+                    {
+                        status = weekRandom.Next(0, 3) switch
+                        {
+                            0 => BookingStatus.Pagata,
+                            1 => BookingStatus.Completata,
+                            _ => BookingStatus.Confermata
+                        };
+                    }
+                    else if (isToday)
+                    {
+                        status = weekRandom.Next(0, 3) switch
+                        {
+                            0 => BookingStatus.Confermata,
+                            1 => BookingStatus.Opzionata,
+                            _ => BookingStatus.Pagata
+                        };
+                    }
+                    else
+                    {
+                        status = weekRandom.Next(0, 2) == 0 ? BookingStatus.Confermata : BookingStatus.Opzionata;
+                    }
+
+                    currentWeekBookings.Add(new Booking
+                    {
+                        Type = boat.Type == BoatType.Gommone ? BookingType.Gommone : BookingType.Escursione,
+                        CustomerId = customer.Id,
+                        BoatId = boat.Id,
+                        Adults = weekRandom.Next(2, Math.Min(boat.Capacity, 5)),
+                        Children = boat.Type == BoatType.Yacht ? weekRandom.Next(0, 2) : null,
+                        StandardPrice = 100m,
+                        ActualPrice = 100m,
+                        Status = status,
+                        Notes = $"Prenotazione {date:dddd} {date:dd/MM/yyyy}",
+                        CreatedAt = DateTime.UtcNow.AddDays(-weekRandom.Next(1, 20)),
+                        BookingDates = new List<BookingDate>
+                        {
+                            new BookingDate
+                            {
+                                Date = date,
+                                StartTime = new TimeSpan(startHour, 0, 0),
+                                EndTime = new TimeSpan(endHour, 0, 0),
+                                IsReturned = isPast && weekRandom.Next(0, 3) > 0,
+                                ReturnedAt = isPast && weekRandom.Next(0, 3) > 0
+                                    ? DateTime.UtcNow.AddHours(-weekRandom.Next(1, 10))
+                                    : null
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        if (currentWeekBookings.Any())
+        {
+            context.Bookings.AddRange(currentWeekBookings);
+            context.SaveChanges();
+        }
     }
 }
