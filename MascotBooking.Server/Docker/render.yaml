@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: mascotbooking
+    env: docker
+    dockerfilePath: Docker/Dockerfile
+    rootDir: MascotBooking.Server
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:${PORT}
+    healthCheckPath: /

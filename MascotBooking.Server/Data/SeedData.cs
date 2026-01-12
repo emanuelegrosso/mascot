@@ -348,10 +348,10 @@ public static class SeedData
 
         // Seed Sample Bookings
         var today = DateTime.Today;
-        var boatL02 = boats.First(b => b.Name == "Gommone L02");
-        var boatAUR = boats.First(b => b.Name == "Yacht Aurora");
-        var boatL05 = boats.First(b => b.Name == "Gommone L05");
-        var boatL10 = boats.First(b => b.Name == "Gommone L10");
+        var boatL02 = boats.First(b => b.Name == "6mt 40CV");
+        var boatAUR = boats.First(b => b.Name == "Escursione con Conducente e Pranzo");
+        var boatL05 = boats.First(b => b.Name == "7mt 150CV");
+        var boatL10 = boats.First(b => b.Name == "10mt 300CV");
 
         var bookings = new List<Booking>
         {

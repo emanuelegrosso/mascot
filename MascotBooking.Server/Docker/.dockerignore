@@ -1,7 +1,7 @@
 # Build artifacts
-**/bin/
-**/obj/
-**/out/
+bin/
+obj/
+out/
 
 # Visual Studio
 .vs/
@@ -32,14 +32,17 @@ Thumbs.db
 .gitignore
 .gitattributes
 
-# Docker
+# Docker (but keep entrypoint.sh)
+Docker/*.yaml
+Docker/*.yml
+Docker/README.md
 Dockerfile
 .dockerignore
 docker-compose.yml
 docker-compose.yaml
 
 # Documentation (optional - remove if you want to include)
-**/docs/
+docs/
 
 # Archives
 *.zip
@@ -50,6 +53,3 @@ docker-compose.yaml
 *.tmp
 *.temp
 *.log
-
-# User journey files (optional - remove if needed)
-UserJourney/
