@@ -1,0 +1,55 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+
+# Visual Studio
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Database files (will be created in container)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# NuGet
+**/packages/
+*.nupkg
+*.snupkg
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.yaml
+
+# Documentation (optional - remove if you want to include)
+**/docs/
+
+# Archives
+*.zip
+*.7z
+*.rar
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# User journey files (optional - remove if needed)
+UserJourney/
