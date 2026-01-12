@@ -309,3 +309,83 @@ body {
     margin-bottom: -5px;
     pointer-events: none;
 }
+
+/* Calendar Monthly View Styles */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-top: 1rem;
+}
+
+.calendar-day {
+    min-height: 100px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px;
+    background-color: #fff;
+    transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.calendar-day:hover {
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.calendar-day.other-month {
+    opacity: 0.4;
+    background-color: #f8f9fa;
+}
+
+.calendar-day.day-saturated {
+    border: 2px solid #dc3545;
+    background-color: #fff5f5;
+}
+
+.day-number {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 4px;
+    color: #212529;
+}
+
+.day-indicator {
+    margin-top: 4px;
+}
+
+.booking-summary {
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: #495057;
+}
+
+.summary-line {
+    margin: 2px 0;
+    padding: 1px 0;
+}
+
+.summary-line.full {
+    font-weight: bold;
+    color: #721c24;
+    background-color: #f8d7da;
+    border-left: 3px solid #dc3545;
+    padding: 3px 6px;
+    border-radius: 3px;
+}
+
+.summary-line.overflow {
+    font-weight: bold;
+    color: #856404;
+    background-color: #fff3cd;
+    border-left: 3px solid #ffc107;
+    padding: 3px 6px;
+    border-radius: 3px;
+}
+
+.overflow-badge {
+    font-size: 0.65rem;
+    margin-left: 4px;
+    color: #dc3545;
+    font-weight: bold;
+    white-space: nowrap;
+}

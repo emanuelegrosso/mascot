@@ -1,0 +1,330 @@
+@page "/boats"
+@inject IBoatService BoatService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Gestione Barche</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Gestione Barche</h2>
+        <button class="btn btn-primary" @onclick="ShowNewBoatForm">
+            <span class="oi oi-plus"></span> Nuova Barca
+        </button>
+    </div>
+
+    <!-- Lista Barche -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Tipo</th>
+                            <th>Potenza (CV)</th>
+                            <th>Capacità</th>
+                            <th>Prezzo Giornaliero</th>
+                            <th>Prezzo Escursione</th>
+                            <th>Richiede Patente</th>
+                            <th>Stato</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var boat in boats)
+                        {
+                            <tr>
+                                <td>@boat.Name</td>
+                                <td>
+                                    <span class="badge bg-@(boat.Type == BoatType.Gommone ? "primary" : "info")">
+                                        @boat.Type
+                                    </span>
+                                </td>
+                                <td>@boat.Horsepower CV</td>
+                                <td>@boat.Capacity persone</td>
+                                <td>
+                                    @if (boat.DailyPrice.HasValue)
+                                    {
+                                        <span>€@boat.DailyPrice.Value.ToString("F2")</span>
+                                        @if (boat.DailyPriceHigh.HasValue && boat.DailyPriceHigh.Value != boat.DailyPrice.Value)
+                                        {
+                                            <small class="text-muted"> / €@boat.DailyPriceHigh.Value.ToString("F2") (alta stagione)</small>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (boat.AdultPrice.HasValue)
+                                    {
+                                        <span>€@boat.AdultPrice.Value.ToString("F2")</span>
+                                        @if (boat.ChildPrice.HasValue)
+                                        {
+                                            <small class="text-muted"> / €@boat.ChildPrice.Value.ToString("F2") (bambini)</small>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (boat.RequiresLicense)
+                                    {
+                                        <span class="badge bg-warning">⚠️ Sì (≥100 CV)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">No</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (boat.IsActive)
+                                    {
+                                        <span class="badge bg-success">Attiva</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Disattiva</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditBoat(boat)">
+                                        <span class="oi oi-pencil"></span> Modifica
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBoat(boat)">
+                                        <span class="oi oi-trash"></span> Elimina
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Nuovo/Modifica Barca -->
+    @if (showForm)
+    {
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5>@(currentBoat.Id > 0 ? "Modifica Barca" : "Nuova Barca")</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Nome *</label>
+                        <input type="text" class="form-control" @bind="currentBoat.Name" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Tipo *</label>
+                        <select class="form-select" @bind="currentBoat.Type" @bind:event="onchange" @bind:after="OnBoatTypeChanged">
+                            <option value="@BoatType.Gommone">Gommone</option>
+                            <option value="@BoatType.Yacht">Yacht (Escursione)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Potenza (CV) *</label>
+                        <input type="number" class="form-control" @bind="currentBoat.Horsepower" min="0" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Capacità (persone) *</label>
+                        <input type="number" class="form-control" @bind="currentBoat.Capacity" min="1" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Richiede Patente</label>
+                        <div class="form-control-plaintext">
+                            @if (currentBoat.RequiresLicense)
+                            {
+                                <span class="badge bg-warning">⚠️ Sì (≥100 CV)</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">No</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prezzi per Gommone -->
+                @if (currentBoat.Type == BoatType.Gommone)
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Prezzo Giornaliero (€) *</label>
+                            <input type="number" class="form-control" @bind="currentBoat.DailyPrice" step="0.01" min="0" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Prezzo Alta Stagione (€)</label>
+                            <input type="number" class="form-control" @bind="currentBoat.DailyPriceHigh" step="0.01" min="0" />
+                            <small class="text-muted">Lasciare vuoto per usare lo stesso prezzo</small>
+                        </div>
+                    </div>
+                }
+
+                <!-- Prezzi per Escursione -->
+                @if (currentBoat.Type == BoatType.Yacht)
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Prezzo Adulto (€) *</label>
+                            <input type="number" class="form-control" @bind="currentBoat.AdultPrice" step="0.01" min="0" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Prezzo Bambino (€)</label>
+                            <input type="number" class="form-control" @bind="currentBoat.ChildPrice" step="0.01" min="0" />
+                            <small class="text-muted">Lasciare vuoto per usare metà prezzo adulto</small>
+                        </div>
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="currentBoat.IsActive" />
+                        <label class="form-check-label fw-bold">Attiva</label>
+                    </div>
+                    <small class="text-muted">Solo le barche attive possono essere selezionate nelle prenotazioni</small>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" @onclick="SaveBoat">
+                        <span class="oi oi-check"></span> Salva
+                    </button>
+                    <button class="btn btn-secondary" @onclick="CancelForm">
+                        <span class="oi oi-x"></span> Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Boat> boats = new();
+    private Boat currentBoat = new();
+    private bool showForm = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBoats();
+    }
+
+    private async Task LoadBoats()
+    {
+        boats = await BoatService.GetAllBoatsAsync();
+        StateHasChanged();
+    }
+
+    private void ShowNewBoatForm()
+    {
+        currentBoat = new Boat
+        {
+            Type = BoatType.Gommone,
+            IsActive = true,
+            Horsepower = 40,
+            Capacity = 4,
+            DailyPrice = 100m
+        };
+        showForm = true;
+    }
+
+    private void EditBoat(Boat boat)
+    {
+        currentBoat = new Boat
+        {
+            Id = boat.Id,
+            Name = boat.Name,
+            Type = boat.Type,
+            Horsepower = boat.Horsepower,
+            Capacity = boat.Capacity,
+            AdultPrice = boat.AdultPrice,
+            ChildPrice = boat.ChildPrice,
+            DailyPrice = boat.DailyPrice,
+            DailyPriceHigh = boat.DailyPriceHigh,
+            IsActive = boat.IsActive
+        };
+        showForm = true;
+    }
+
+    private void OnBoatTypeChanged()
+    {
+        // Reset prezzi quando cambia il tipo
+        if (currentBoat.Type == BoatType.Gommone)
+        {
+            currentBoat.AdultPrice = null;
+            currentBoat.ChildPrice = null;
+            if (!currentBoat.DailyPrice.HasValue)
+                currentBoat.DailyPrice = 100m;
+        }
+        else
+        {
+            currentBoat.DailyPrice = null;
+            currentBoat.DailyPriceHigh = null;
+            if (!currentBoat.AdultPrice.HasValue)
+                currentBoat.AdultPrice = 100m;
+        }
+    }
+
+    private async Task SaveBoat()
+    {
+        if (string.IsNullOrWhiteSpace(currentBoat.Name) || 
+            currentBoat.Capacity <= 0)
+        {
+            return;
+        }
+
+        // Validazione prezzi
+        if (currentBoat.Type == BoatType.Gommone && !currentBoat.DailyPrice.HasValue)
+        {
+            return;
+        }
+        if (currentBoat.Type == BoatType.Yacht && !currentBoat.AdultPrice.HasValue)
+        {
+            return;
+        }
+
+        if (currentBoat.Id > 0)
+        {
+            await BoatService.UpdateBoatAsync(currentBoat);
+        }
+        else
+        {
+            await BoatService.CreateBoatAsync(currentBoat);
+        }
+
+        await LoadBoats();
+        showForm = false;
+        currentBoat = new();
+    }
+
+    private void CancelForm()
+    {
+        showForm = false;
+        currentBoat = new();
+    }
+
+    private async Task DeleteBoat(Boat boat)
+    {
+        try
+        {
+            await BoatService.DeleteBoatAsync(boat.Id);
+            await LoadBoats();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Mostra messaggio di errore all'utente
+            await JSRuntime.InvokeVoidAsync("alert", ex.Message);
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Errore durante l'eliminazione: {ex.Message}");
+        }
+    }
+}

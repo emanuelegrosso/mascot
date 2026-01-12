@@ -33,7 +33,9 @@ builder.Services.AddScoped<ICalendarService, CalendarService>();
 builder.Services.AddScoped<IPriceCalculatorService, PriceCalculatorService>();
 builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<ISkipperService, SkipperService>();
+builder.Services.AddScoped<IBoatService, BoatService>();
 builder.Services.AddScoped<IBoatPriceService, BoatPriceService>();
+builder.Services.AddScoped<IDamageService, DamageService>();
 
 // Storage Service - Choose one: Local, GoogleDrive, or DropboxStorageService
 // Configure in appsettings.json under "Storage" section
@@ -116,6 +118,11 @@ using (var scope = app.Services.CreateScope())
                 result = command.ExecuteScalar();
                 var boatPricesTableExists = Convert.ToInt32(result) > 0;
                 
+                // Check if Damages table exists
+                command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='Damages'";
+                result = command.ExecuteScalar();
+                var damagesTableExists = Convert.ToInt32(result) > 0;
+                
                 bool needsRecreation = false;
                 
                 // Check if SkipperId column exists in Bookings
@@ -135,8 +142,24 @@ using (var scope = app.Services.CreateScope())
                     needsRecreation = true;
                 }
                 
+                // Check if payment columns exist in Bookings
+                command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('Bookings') WHERE name='AccontoLasciato'";
+                var accontoColumnResult = command.ExecuteScalar();
+                var accontoColumnExists = Convert.ToInt32(accontoColumnResult) > 0;
+                
+                if (!accontoColumnExists)
+                {
+                    needsRecreation = true;
+                }
+                
                 // If BoatPrices table doesn't exist, recreate database
                 if (!boatPricesTableExists)
+                {
+                    needsRecreation = true;
+                }
+                
+                // If Damages table doesn't exist, recreate database
+                if (!damagesTableExists)
                 {
                     needsRecreation = true;
                 }

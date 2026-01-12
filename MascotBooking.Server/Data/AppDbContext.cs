@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<BookingDate> BookingDates { get; set; }
     public DbSet<Skipper> Skippers { get; set; }
     public DbSet<BoatPrice> BoatPrices { get; set; }
+    public DbSet<Damage> Damages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -115,60 +115,259 @@
                 </div>
             </div>
             <div class="card-body">
+                @{
+                    // Raggruppa prenotazioni per categoria
+                    var barcheConPatente = dailyBookings.Where(b => b.Type == BookingType.Gommone && b.Boat.Horsepower >= 100).ToList();
+                    var barcheSenzaPatente = dailyBookings.Where(b => b.Type == BookingType.Gommone && b.Boat.Horsepower < 100).ToList();
+                    var escursioni = dailyBookings.Where(b => b.Type == BookingType.Escursione).ToList();
+                    
+                    // Calcola stati
+                    var conPatentePiena = barcheConPatenteTotali > 0 && barcheConPatente.Count >= barcheConPatenteTotali;
+                    var conPatenteOverflow = barcheConPatente.Count > barcheConPatenteTotali;
+                    var senzaPatentePiena = barcheSenzaPatenteTotali > 0 && barcheSenzaPatente.Count >= barcheSenzaPatenteTotali;
+                    var senzaPatenteOverflow = barcheSenzaPatente.Count > barcheSenzaPatenteTotali;
+                    var escursionePiena = escursioniTotali > 0 && escursioni.Count >= escursioniTotali;
+                    var escursioneOverflow = escursioni.Count > escursioniTotali;
+                }
+                
                 @if (dailyBookings.Any())
                 {
-                    <div class="list-group">
-                        @foreach (var booking in dailyBookings)
-                        {
-                            var tooltipText = $"{booking.Customer.FullName} – {booking.Type} – {(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "Escursione")}";
-                            var colorClass = GetBookingColorClass(booking);
-                            var statusClass = booking.Status == BookingStatus.InAttesa ? "booking-status-waiting" : "";
-                            
-                            <div class="list-group-item booking-tooltip @statusClass" 
-                                 @onclick="() => ShowBookingDetail(booking)" 
-                                 style="cursor: pointer; border-left: 4px solid @GetBookingColor(booking);"
-                                 data-tooltip="@tooltipText">
-                                <div class="d-flex w-100 justify-content-between align-items-center">
-                                    <h6 class="mb-1">@booking.Customer.FullName - @booking.Boat.Name</h6>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <select class="form-select form-select-sm status-select" 
-                                                style="width: auto; min-width: 120px;"
-                                                value="@booking.Status.ToString()"
-                                                @onchange="@((ChangeEventArgs e) => OnStatusChanged(booking, e))"
-                                                @onclick:stopPropagation="true">
-                                            <option value="@booking.Status.ToString()">@booking.Status</option>
-                                            @foreach (var validStatus in GetValidStatusesForBooking(booking))
-                                            {
-                                                <option value="@validStatus.ToString()">@validStatus</option>
-                                            }
-                                        </select>
-                                        <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span>
-                                    </div>
-                                </div>
-                                <p class="mb-1">
-                                    <span class="badge @colorClass">@booking.Type @(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "")</span>
-                                    - @GetBookingTimes(booking)
-                                    @if (booking.SkipperId.HasValue && booking.Skipper != null)
+                    <!-- Sezione Con Patente -->
+                    @if (barcheConPatenteTotali > 0)
+                    {
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0 fw-bold">
+                                    Con Patente: @barcheConPatente.Count/@barcheConPatenteTotali
+                                    @if (conPatenteOverflow)
                                     {
-                                        <span class="badge bg-info ms-1">⚓ @booking.Skipper.FullName</span>
+                                        <span class="badge bg-warning ms-2">⚠️ SOVRAPPOSIZIONE</span>
                                     }
-                                </p>
-                                <small>
-                                    Persone: @(booking.Adults + (booking.Children ?? 0))
-                                    @if (booking.Type == BookingType.Escursione)
+                                    else if (conPatentePiena)
                                     {
-                                        var totalPersons = booking.Adults + (booking.Children ?? 0);
-                                        <text> | Capienza: @totalPersons/@booking.Boat.Capacity</text>
-                                        @if (totalPersons > booking.Boat.Capacity)
-                                        {
-                                            <span class="badge bg-danger ms-1">⚠️ Capienza superata!</span>
-                                        }
+                                        <span class="badge bg-danger ms-2">PIENO</span>
                                     }
-                                    | Prezzo: €@booking.ActualPrice.ToString("F2")
-                                </small>
+                                </h6>
                             </div>
-                        }
-                    </div>
+                            @if (barcheConPatente.Any())
+                            {
+                                <div class="list-group">
+                                    @foreach (var booking in barcheConPatente)
+                                    {
+                                        var tooltipText = $"{booking.Customer.FullName} – {booking.Type} – {(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "Escursione")}";
+                                        var colorClass = GetBookingColorClass(booking);
+                                        var statusClass = booking.Status == BookingStatus.InAttesa ? "booking-status-waiting" : "";
+                                        
+                                        <div class="list-group-item booking-tooltip @statusClass" 
+                                             @onclick="() => ShowBookingDetail(booking)" 
+                                             style="cursor: pointer; border-left: 4px solid @GetBookingColor(booking);"
+                                             data-tooltip="@tooltipText">
+                                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                                <h6 class="mb-1">@booking.Customer.FullName - @booking.Boat.Name</h6>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <select class="form-select form-select-sm status-select" 
+                                                            style="width: auto; min-width: 120px;"
+                                                            value="@booking.Status.ToString()"
+                                                            @onchange="@((ChangeEventArgs e) => OnStatusChanged(booking, e))"
+                                                            @onclick:stopPropagation="true">
+                                                        <option value="@booking.Status.ToString()">@booking.Status</option>
+                                                        @foreach (var validStatus in GetValidStatusesForBooking(booking))
+                                                        {
+                                                            <option value="@validStatus.ToString()">@validStatus</option>
+                                                        }
+                                                    </select>
+                                                    <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span>
+                                                </div>
+                                            </div>
+                                            <p class="mb-1">
+                                                <span class="badge @colorClass">@booking.Type @(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "")</span>
+                                                - @GetBookingTimes(booking)
+                                                @if (booking.SkipperId.HasValue && booking.Skipper != null)
+                                                {
+                                                    <span class="badge bg-info ms-1">⚓ @booking.Skipper.FullName</span>
+                                                }
+                                            </p>
+                                            <small>
+                                                Persone: @(booking.Adults + (booking.Children ?? 0))
+                                                @if (booking.Type == BookingType.Escursione)
+                                                {
+                                                    var totalPersons = booking.Adults + (booking.Children ?? 0);
+                                                    <text> | Capienza: @totalPersons/@booking.Boat.Capacity</text>
+                                                    @if (totalPersons > booking.Boat.Capacity)
+                                                    {
+                                                        <span class="badge bg-danger ms-1">⚠️ Capienza superata!</span>
+                                                    }
+                                                }
+                                                | Prezzo: €@booking.ActualPrice.ToString("F2")
+                                            </small>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted small mb-0">Nessuna prenotazione</p>
+                            }
+                        </div>
+                    }
+                    
+                    <!-- Sezione Senza Patente -->
+                    @if (barcheSenzaPatenteTotali > 0)
+                    {
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0 fw-bold">
+                                    Senza Patente: @barcheSenzaPatente.Count/@barcheSenzaPatenteTotali
+                                    @if (senzaPatenteOverflow)
+                                    {
+                                        <span class="badge bg-warning ms-2">⚠️ SOVRAPPOSIZIONE</span>
+                                    }
+                                    else if (senzaPatentePiena)
+                                    {
+                                        <span class="badge bg-danger ms-2">PIENO</span>
+                                    }
+                                </h6>
+                            </div>
+                            @if (barcheSenzaPatente.Any())
+                            {
+                                <div class="list-group">
+                                    @foreach (var booking in barcheSenzaPatente)
+                                    {
+                                        var tooltipText = $"{booking.Customer.FullName} – {booking.Type} – {(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "Escursione")}";
+                                        var colorClass = GetBookingColorClass(booking);
+                                        var statusClass = booking.Status == BookingStatus.InAttesa ? "booking-status-waiting" : "";
+                                        
+                                        <div class="list-group-item booking-tooltip @statusClass" 
+                                             @onclick="() => ShowBookingDetail(booking)" 
+                                             style="cursor: pointer; border-left: 4px solid @GetBookingColor(booking);"
+                                             data-tooltip="@tooltipText">
+                                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                                <h6 class="mb-1">@booking.Customer.FullName - @booking.Boat.Name</h6>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <select class="form-select form-select-sm status-select" 
+                                                            style="width: auto; min-width: 120px;"
+                                                            value="@booking.Status.ToString()"
+                                                            @onchange="@((ChangeEventArgs e) => OnStatusChanged(booking, e))"
+                                                            @onclick:stopPropagation="true">
+                                                        <option value="@booking.Status.ToString()">@booking.Status</option>
+                                                        @foreach (var validStatus in GetValidStatusesForBooking(booking))
+                                                        {
+                                                            <option value="@validStatus.ToString()">@validStatus</option>
+                                                        }
+                                                    </select>
+                                                    <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span>
+                                                </div>
+                                            </div>
+                                            <p class="mb-1">
+                                                <span class="badge @colorClass">@booking.Type @(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "")</span>
+                                                - @GetBookingTimes(booking)
+                                                @if (booking.SkipperId.HasValue && booking.Skipper != null)
+                                                {
+                                                    <span class="badge bg-info ms-1">⚓ @booking.Skipper.FullName</span>
+                                                }
+                                            </p>
+                                            <small>
+                                                Persone: @(booking.Adults + (booking.Children ?? 0))
+                                                @if (booking.Type == BookingType.Escursione)
+                                                {
+                                                    var totalPersons = booking.Adults + (booking.Children ?? 0);
+                                                    <text> | Capienza: @totalPersons/@booking.Boat.Capacity</text>
+                                                    @if (totalPersons > booking.Boat.Capacity)
+                                                    {
+                                                        <span class="badge bg-danger ms-1">⚠️ Capienza superata!</span>
+                                                    }
+                                                }
+                                                | Prezzo: €@booking.ActualPrice.ToString("F2")
+                                            </small>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted small mb-0">Nessuna prenotazione</p>
+                            }
+                        </div>
+                    }
+                    
+                    <!-- Sezione Escursione -->
+                    @if (escursioniTotali > 0)
+                    {
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0 fw-bold">
+                                    Escursione: @escursioni.Count/@escursioniTotali
+                                    @if (escursioneOverflow)
+                                    {
+                                        <span class="badge bg-warning ms-2">⚠️ SOVRAPPOSIZIONE</span>
+                                    }
+                                    else if (escursionePiena)
+                                    {
+                                        <span class="badge bg-danger ms-2">PIENO</span>
+                                    }
+                                </h6>
+                            </div>
+                            @if (escursioni.Any())
+                            {
+                                <div class="list-group">
+                                    @foreach (var booking in escursioni)
+                                    {
+                                        var tooltipText = $"{booking.Customer.FullName} – {booking.Type} – {(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "Escursione")}";
+                                        var colorClass = GetBookingColorClass(booking);
+                                        var statusClass = booking.Status == BookingStatus.InAttesa ? "booking-status-waiting" : "";
+                                        
+                                        <div class="list-group-item booking-tooltip @statusClass" 
+                                             @onclick="() => ShowBookingDetail(booking)" 
+                                             style="cursor: pointer; border-left: 4px solid @GetBookingColor(booking);"
+                                             data-tooltip="@tooltipText">
+                                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                                <h6 class="mb-1">@booking.Customer.FullName - @booking.Boat.Name</h6>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <select class="form-select form-select-sm status-select" 
+                                                            style="width: auto; min-width: 120px;"
+                                                            value="@booking.Status.ToString()"
+                                                            @onchange="@((ChangeEventArgs e) => OnStatusChanged(booking, e))"
+                                                            @onclick:stopPropagation="true">
+                                                        <option value="@booking.Status.ToString()">@booking.Status</option>
+                                                        @foreach (var validStatus in GetValidStatusesForBooking(booking))
+                                                        {
+                                                            <option value="@validStatus.ToString()">@validStatus</option>
+                                                        }
+                                                    </select>
+                                                    <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span>
+                                                </div>
+                                            </div>
+                                            <p class="mb-1">
+                                                <span class="badge @colorClass">@booking.Type @(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "")</span>
+                                                - @GetBookingTimes(booking)
+                                                @if (booking.SkipperId.HasValue && booking.Skipper != null)
+                                                {
+                                                    <span class="badge bg-info ms-1">⚓ @booking.Skipper.FullName</span>
+                                                }
+                                            </p>
+                                            <small>
+                                                Persone: @(booking.Adults + (booking.Children ?? 0))
+                                                @if (booking.Type == BookingType.Escursione)
+                                                {
+                                                    var totalPersons = booking.Adults + (booking.Children ?? 0);
+                                                    <text> | Capienza: @totalPersons/@booking.Boat.Capacity</text>
+                                                    @if (totalPersons > booking.Boat.Capacity)
+                                                    {
+                                                        <span class="badge bg-danger ms-1">⚠️ Capienza superata!</span>
+                                                    }
+                                                }
+                                                | Prezzo: €@booking.ActualPrice.ToString("F2")
+                                            </small>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted small mb-0">Nessuna prenotazione</p>
+                            }
+                        </div>
+                    }
                 }
                 else
                 {
@@ -280,43 +479,60 @@
                     {
                         var dayBookings = dailyBookings.Where(b => b.BookingDates.Any(bd => bd.Date.Date == day.Date)).ToList();
                         var count = dayBookings.Count;
-                        var primaryColor = count > 0 ? GetBookingColor(dayBookings.First()) : "";
                         
-                        // Calcola indicatori per tipologia
-                        var escursioniCount = dayBookings.Count(b => b.Type == BookingType.Escursione);
-                        var gommoni40 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 40);
-                        var gommoni100 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 100);
-                        var gommoni150 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 150);
-                        var gommoni200 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 200);
-                        var gommoni250 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 250);
-                        var gommoni300 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 300);
-                        var gommoniOther = dayBookings.Count(b => b.Type == BookingType.Gommone && 
-                            !new[] { 40, 100, 150, 200, 250, 300 }.Contains(b.Boat.Horsepower));
+                        // Calcola prenotazioni per categoria
+                        var barcheConPatentePrenotate = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower >= 100);
+                        var barcheSenzaPatentePrenotate = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower < 100);
+                        var escursioniPrenotate = dayBookings.Count(b => b.Type == BookingType.Escursione);
                         
-                        var indicators = new List<string>();
-                        if (escursioniCount > 0) indicators.Add($"Esc:{escursioniCount}");
-                        if (gommoni40 > 0) indicators.Add($"40:{gommoni40}");
-                        if (gommoni100 > 0) indicators.Add($"100:{gommoni100}");
-                        if (gommoni150 > 0) indicators.Add($"150:{gommoni150}");
-                        if (gommoni200 > 0) indicators.Add($"200:{gommoni200}");
-                        if (gommoni250 > 0) indicators.Add($"250:{gommoni250}");
-                        if (gommoni300 > 0) indicators.Add($"300:{gommoni300}");
-                        if (gommoniOther > 0) indicators.Add($"Alt:{gommoniOther}");
+                        // Verifica saturazione (pieno) e overflow (sovrapposizione)
+                        var conPatentePiena = barcheConPatenteTotali > 0 && barcheConPatentePrenotate >= barcheConPatenteTotali;
+                        var conPatenteOverflow = barcheConPatentePrenotate > barcheConPatenteTotali;
+                        var senzaPatentePiena = barcheSenzaPatenteTotali > 0 && barcheSenzaPatentePrenotate >= barcheSenzaPatenteTotali;
+                        var senzaPatenteOverflow = barcheSenzaPatentePrenotate > barcheSenzaPatenteTotali;
+                        var escursionePiena = escursioniTotali > 0 && escursioniPrenotate >= escursioniTotali;
+                        var escursioneOverflow = escursioniPrenotate > escursioniTotali;
+                        var hasSaturation = conPatentePiena || senzaPatentePiena || escursionePiena || conPatenteOverflow || senzaPatenteOverflow || escursioneOverflow;
                         
-                        <div class="calendar-day @(day.Month != currentMonth.Month ? "other-month" : "")" 
+                        <div class="calendar-day @(day.Month != currentMonth.Month ? "other-month" : "") @(hasSaturation ? "day-saturated" : "")" 
                              @onclick="async () => { if (count > 0) { currentDate = day; viewType = CalendarViewType.Giornaliera; await LoadData(); } }"
                              style="cursor: @(count > 0 ? "pointer" : "default");">
                             <div class="day-number">@day.Day</div>
                             @if (count > 0)
                             {
                                 <div class="day-indicator">
-                                    <span class="badge" style="background-color: @primaryColor; color: white;">@count</span>
-                                    @if (indicators.Any())
-                                    {
-                                        <div class="day-indicators-detail" style="font-size: 0.65rem; margin-top: 2px;">
-                                            @string.Join(" | ", indicators)
-                                        </div>
-                                    }
+                                    <div class="booking-summary">
+                                        @if (barcheConPatenteTotali > 0)
+                                        {
+                                            <div class="summary-line @(conPatentePiena ? "full" : "") @(conPatenteOverflow ? "overflow" : "")">
+                                                Con Patente: @barcheConPatentePrenotate/@barcheConPatenteTotali
+                                                @if (conPatenteOverflow)
+                                                {
+                                                    <span class="overflow-badge">⚠️ SOVRAPPOSIZIONE</span>
+                                                }
+                                            </div>
+                                        }
+                                        @if (barcheSenzaPatenteTotali > 0)
+                                        {
+                                            <div class="summary-line @(senzaPatentePiena ? "full" : "") @(senzaPatenteOverflow ? "overflow" : "")">
+                                                Senza Patente: @barcheSenzaPatentePrenotate/@barcheSenzaPatenteTotali
+                                                @if (senzaPatenteOverflow)
+                                                {
+                                                    <span class="overflow-badge">⚠️ SOVRAPPOSIZIONE</span>
+                                                }
+                                            </div>
+                                        }
+                                        @if (escursioniTotali > 0)
+                                        {
+                                            <div class="summary-line @(escursionePiena ? "full" : "") @(escursioneOverflow ? "overflow" : "")">
+                                                Escursione: @escursioniPrenotate/@escursioniTotali
+                                                @if (escursioneOverflow)
+                                                {
+                                                    <span class="overflow-badge">⚠️ SOVRAPPOSIZIONE</span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
                             }
                         </div>
@@ -434,6 +650,11 @@
     private bool showLegend = false;
     private string? statusUpdateMessage = null;
     private bool statusUpdateSuccess = false;
+    
+    // Totali barche per categoria (calcolati una volta)
+    private int barcheConPatenteTotali = 0;
+    private int barcheSenzaPatenteTotali = 0;
+    private int escursioniTotali = 0;
 
     [Parameter] public string? date { get; set; }
     [Parameter] public string? view { get; set; }
@@ -466,6 +687,12 @@
         currentMonth = new DateTime(currentDate.Year, currentDate.Month, 1);
         currentYear = currentDate.Year;
         allBoats = await DbContext.Boats.Where(b => b.IsActive).ToListAsync();
+        
+        // Calcola totali barche per categoria
+        barcheConPatenteTotali = allBoats.Count(b => b.Type == BoatType.Gommone && b.Horsepower >= 100);
+        barcheSenzaPatenteTotali = allBoats.Count(b => b.Type == BoatType.Gommone && b.Horsepower < 100);
+        escursioniTotali = allBoats.Count(b => b.Type == BoatType.Yacht);
+        
         await LoadData();
 
         // Check for bookingId to show detail

@@ -2,6 +2,7 @@
 @inject IBookingService BookingService
 @inject ICustomerService CustomerService
 @inject IGlobalSearchService GlobalSearchService
+@inject IDamageService DamageService
 
 <PageTitle>Dashboard</PageTitle>
 
@@ -118,33 +119,116 @@
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header">
-            <h5>Prossimi Rientri</h5>
-        </div>
-        <div class="card-body">
-            @if (upcomingReturns.Any())
-            {
-                <div class="list-group">
-                    @foreach (var booking in upcomingReturns)
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Prossimi Rientri</h5>
+                </div>
+                <div class="card-body">
+                    @if (upcomingReturns.Any())
                     {
-                        <div class="list-group-item">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">@booking.Customer.FullName - @booking.Boat.Name</h6>
-                                <small>@GetReturnTime(booking)</small>
-                            </div>
-                            <p class="mb-1">@booking.Type - @booking.Boat.Name</p>
-                            <small>Stato: <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span></small>
+                        <div class="list-group">
+                            @foreach (var booking in upcomingReturns)
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">@booking.Customer.FullName - @booking.Boat.Name</h6>
+                                        <small>@GetReturnTime(booking)</small>
+                                    </div>
+                                    <p class="mb-1">@booking.Type - @booking.Boat.Name</p>
+                                    <small>Stato: <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span></small>
+                                </div>
+                            }
                         </div>
                     }
+                    else
+                    {
+                        <p class="text-muted">Nessun rientro previsto oggi</p>
+                    }
                 </div>
-            }
-            else
-            {
-                <p class="text-muted">Nessun rientro previsto oggi</p>
-            }
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Danni e Costi Associati</h5>
+                    <button class="btn btn-sm btn-primary" @onclick="ShowAddDamageForm">
+                        <span class="oi oi-plus"></span> Aggiungi Danno
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if (todayDamages.Any())
+                    {
+                        <div class="list-group mb-3">
+                            @foreach (var damage in todayDamages)
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">€@damage.Cost.ToString("F2")</h6>
+                                            <p class="mb-1">@damage.Description</p>
+                                            <small class="text-muted">@damage.CreatedAt.ToString("HH:mm")</small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => EditDamage(damage)">
+                                                <span class="oi oi-pencil"></span>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteDamage(damage)">
+                                                <span class="oi oi-trash"></span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        <div class="alert alert-info mb-0">
+                            <strong>Totale Danni Oggi:</strong> €@totalDamageCost.ToString("F2")
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Nessun danno registrato oggi</p>
+                    }
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Form Aggiungi/Modifica Danno -->
+    @if (showDamageForm)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>@(currentDamage.Id > 0 ? "Modifica Danno" : "Nuovo Danno")</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Data *</label>
+                        <input type="date" class="form-control" @bind="currentDamage.Date" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Costo (€) *</label>
+                        <input type="number" class="form-control" @bind="currentDamage.Cost" step="0.01" min="0" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Descrizione Danni *</label>
+                    <textarea class="form-control" rows="3" @bind="currentDamage.Description" 
+                               placeholder="Descrivi i danni riscontrati..."></textarea>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" @onclick="SaveDamage">
+                        <span class="oi oi-check"></span> Salva
+                    </button>
+                    <button class="btn btn-secondary" @onclick="CancelDamageForm">
+                        <span class="oi oi-x"></span> Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -154,6 +238,12 @@
     private int boatsOutCount = 0;
     private decimal estimatedRevenue = 0;
     private List<Booking> upcomingReturns = new();
+    
+    // Danni
+    private List<Damage> todayDamages = new();
+    private decimal totalDamageCost = 0;
+    private Damage currentDamage = new();
+    private bool showDamageForm = false;
     
     // Search
     private string searchTerm = string.Empty;
@@ -296,6 +386,10 @@
             .OrderBy(b => b.BookingDates.FirstOrDefault(bd => !bd.IsReturned)?.EndTime)
             .Take(5)
             .ToList();
+
+        // Carica danni del giorno
+        todayDamages = await DamageService.GetDamagesByDateAsync(today);
+        totalDamageCost = await DamageService.GetTotalDamageCostByDateAsync(today);
     }
 
     private string GetReturnTime(Booking booking)
@@ -318,5 +412,60 @@
             BookingStatus.InAttesa => "warning",
             _ => "secondary"
         };
+    }
+
+    private void ShowAddDamageForm()
+    {
+        currentDamage = new Damage
+        {
+            Date = DateTime.Today,
+            Cost = 0
+        };
+        showDamageForm = true;
+    }
+
+    private void EditDamage(Damage damage)
+    {
+        currentDamage = new Damage
+        {
+            Id = damage.Id,
+            Date = damage.Date,
+            Description = damage.Description,
+            Cost = damage.Cost
+        };
+        showDamageForm = true;
+    }
+
+    private async Task SaveDamage()
+    {
+        if (string.IsNullOrWhiteSpace(currentDamage.Description) || currentDamage.Cost <= 0)
+        {
+            return;
+        }
+
+        if (currentDamage.Id > 0)
+        {
+            await DamageService.UpdateDamageAsync(currentDamage);
+        }
+        else
+        {
+            await DamageService.CreateDamageAsync(currentDamage);
+        }
+
+        await LoadDashboardData();
+        showDamageForm = false;
+        currentDamage = new();
+    }
+
+    private void CancelDamageForm()
+    {
+        showDamageForm = false;
+        currentDamage = new();
+    }
+
+    private async Task DeleteDamage(Damage damage)
+    {
+        await DamageService.DeleteDamageAsync(damage.Id);
+        await LoadDashboardData();
     }
 }

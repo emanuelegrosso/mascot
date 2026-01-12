@@ -30,6 +30,17 @@ public class Booking
     [Column(TypeName = "decimal(10,2)")]
     public decimal ActualPrice { get; set; }
 
+    // Campi pagamento
+    public bool AccontoLasciato { get; set; } = false;
+
+    [Column(TypeName = "decimal(10,2)")]
+    public decimal? AccontoVersato { get; set; }
+
+    [Column(TypeName = "decimal(10,2)")]
+    public decimal? SaldoDaPagare { get; set; }
+
+    public bool SaldoCompletato { get; set; } = false;
+
     [Required]
     public BookingStatus Status { get; set; } = BookingStatus.Confermata;
 

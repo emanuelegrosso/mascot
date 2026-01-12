@@ -96,6 +96,45 @@
                            step="0.01" @onchange="OnPriceChanged" />
                 </div>
 
+                <!-- Sezione Pagamento -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>Informazioni Pagamento</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" @bind="accontoLasciato" @bind:after="OnAccontoChanged" />
+                                    <label class="form-check-label fw-bold">Acconto Lasciato</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                @if (accontoLasciato)
+                                {
+                                    <label class="form-label">Importo Acconto (€)</label>
+                                    <input type="number" class="form-control" @bind="accontoVersato" 
+                                           step="0.01" min="0" @bind:after="OnAccontoChanged" />
+                                }
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Saldo da Pagare (€)</label>
+                                <input type="number" class="form-control" @bind="saldoDaPagare" 
+                                       step="0.01" min="0" />
+                                <small class="text-muted">Calcolato automaticamente se acconto inserito</small>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" @bind="saldoCompletato" />
+                                    <label class="form-check-label fw-bold">Saldo Completato</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Validazione Patente -->
                 @if (requiresLicense)
                 {
@@ -225,6 +264,12 @@
     private List<Boat> availableBoats = new();
     private List<Customer> allCustomers = new();
     private List<Skipper> availableSkippers = new();
+    
+    // Campi pagamento
+    private bool accontoLasciato = false;
+    private decimal? accontoVersato = null;
+    private decimal? saldoDaPagare = null;
+    private bool saldoCompletato = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -339,6 +384,21 @@
         priceManuallyChanged = true;
     }
 
+    private void OnAccontoChanged()
+    {
+        // Calcola automaticamente il saldo da pagare
+        if (accontoLasciato && accontoVersato.HasValue && accontoVersato.Value > 0)
+        {
+            saldoDaPagare = actualPrice - accontoVersato.Value;
+            if (saldoDaPagare < 0) saldoDaPagare = 0;
+        }
+        else
+        {
+            saldoDaPagare = null;
+        }
+        StateHasChanged();
+    }
+
     private async Task LoadCustomer(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out int customerId) && customerId > 0)
@@ -392,6 +452,10 @@
             Status = BookingStatus.Confermata,
             Notes = notes,
             SkipperId = selectedSkipperId > 0 ? selectedSkipperId : null,
+            AccontoLasciato = accontoLasciato,
+            AccontoVersato = accontoVersato,
+            SaldoDaPagare = saldoDaPagare,
+            SaldoCompletato = saldoCompletato,
             BookingDates = selectedDates.Select(d => new BookingDate
             {
                 Date = d,
