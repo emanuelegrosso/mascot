@@ -17,7 +17,7 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Stato</label>
-                    <select class="form-select form-select-sm" @bind="filterStatus" @onchange="OnFilterChanged">
+                    <select class="form-select form-select-sm" value="@filterStatus" @onchange="@(async (ChangeEventArgs e) => { filterStatus = e.Value?.ToString(); await OnFilterChanged(); })">
                         <option value="">Tutti</option>
                         <option value="Completata">Completate</option>
                         <option value="Annullata">Annullate</option>
@@ -29,15 +29,15 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Da Data</label>
-                    <input type="date" class="form-control form-control-sm" @bind="filterStartDate" @onchange="OnFilterChanged" />
+                    <input type="date" class="form-control form-control-sm" value="@(filterStartDate?.ToString("yyyy-MM-dd"))" @onchange="@(async (ChangeEventArgs e) => { if (DateTime.TryParse(e.Value?.ToString(), out DateTime date)) { filterStartDate = date; } else { filterStartDate = null; } await OnFilterChanged(); })" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">A Data</label>
-                    <input type="date" class="form-control form-control-sm" @bind="filterEndDate" @onchange="OnFilterChanged" />
+                    <input type="date" class="form-control form-control-sm" value="@(filterEndDate?.ToString("yyyy-MM-dd"))" @onchange="@(async (ChangeEventArgs e) => { if (DateTime.TryParse(e.Value?.ToString(), out DateTime date)) { filterEndDate = date; } else { filterEndDate = null; } await OnFilterChanged(); })" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Tipo</label>
-                    <select class="form-select form-select-sm" @bind="filterBoatType" @onchange="OnFilterChanged">
+                    <select class="form-select form-select-sm" value="@filterBoatType" @onchange="@(async (ChangeEventArgs e) => { filterBoatType = e.Value?.ToString(); await OnFilterChanged(); })">
                         <option value="">Tutti</option>
                         <option value="Gommone">Gommoni</option>
                         <option value="Escursione">Escursioni</option>
