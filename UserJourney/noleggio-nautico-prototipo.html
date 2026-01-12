@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nautica Mascot - Sistema Gestione Prenotazioni</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --light-blue: #dbeafe;
+            --accent-yellow: #fbbf24;
+            --accent-red: #ef4444;
+            --accent-green: #10b981;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            background: var(--primary-blue);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        /* Search Bar */
+        .search-container {
+            position: relative;
+        }
+
+        .search-input {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 20px;
+            width: 300px;
+            font-size: 0.9rem;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 0.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1001;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-result-item {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .search-result-item:hover {
+            background: var(--light-blue);
+        }
+
+        .search-result-type {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+        }
+
+        /* Navigation */
+        nav {
+            background: white;
+            padding: 0 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            gap: 2rem;
+        }
+
+        nav a {
+            padding: 1rem 0;
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--primary-blue);
+            border-bottom-color: var(--primary-blue);
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Dashboard */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .stat-card h3 {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-blue);
+        }
+
+        .upcoming-returns {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .upcoming-returns h2 {
+            margin-bottom: 1rem;
+            color: var(--primary-blue);
+        }
+
+        .return-item {
+            padding: 1rem;
+            border-left: 4px solid var(--secondary-blue);
+            background: var(--light-blue);
+            margin-bottom: 0.75rem;
+            border-radius: 4px;
+        }
+
+        /* Form Styles */
+        .form-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+        }
+
+        .form-section h2 {
+            margin-bottom: 1.5rem;
+            color: var(--primary-blue);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--secondary-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .toggle-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid var(--border);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .toggle-btn.active {
+            background: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1e40af;
+        }
+
+        .btn-secondary {
+            background: var(--text-light);
+            color: white;
+        }
+
+        .price-display {
+            background: var(--light-blue);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: var(--primary-blue);
+        }
+
+        /* Calendar */
+        .calendar-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            overflow-x: auto;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .calendar-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        .calendar-table th {
+            background: var(--primary-blue);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 500;
+        }
+
+        .calendar-table td {
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            vertical-align: top;
+            min-height: 80px;
+        }
+
+        .time-slot {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            margin-bottom: 0.25rem;
+        }
+
+        .booking-block {
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .booking-block:hover {
+            transform: scale(1.02);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .booking-block.confirmed {
+            background: var(--secondary-blue);
+            color: white;
+        }
+
+        .booking-block.option {
+            background: var(--accent-yellow);
+            color: var(--text-dark);
+        }
+
+        .booking-block.ritirato {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .booking-block.rientrato {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 0.25rem;
+        }
+
+        /* Customer Card */
+        .customer-info {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+        }
+
+        .customer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .document-section {
+            margin-top: 2rem;
+        }
+
+        .document-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: var(--bg-light);
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .document-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-present {
+            color: var(--accent-green);
+            font-weight: 500;
+        }
+
+        .status-missing {
+            color: var(--accent-red);
+            font-weight: 500;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .search-input {
+                width: 200px;
+            }
+
+            nav {
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="logo">🛥️ Nautica Mascot</div>
+        <div class="header-right">
+            <div class="search-container">
+                <input type="text" class="search-input" id="globalSearch" placeholder="Cerca cliente, prenotazione, barca...">
+                <div class="search-results" id="searchResults"></div>
+            </div>
+            <button class="btn btn-secondary" onclick="alert('Logout')">Logout</button>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav>
+        <a href="#" onclick="showPage('dashboard'); return false;" class="active" id="nav-dashboard">Dashboard</a>
+        <a href="#" onclick="showPage('new-booking'); return false;" id="nav-new-booking">Nuova Prenotazione</a>
+        <a href="#" onclick="showPage('calendar'); return false;" id="nav-calendar">Calendario</a>
+        <a href="#" onclick="showPage('customer'); return false;" id="nav-customer">Scheda Cliente</a>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Dashboard Page -->
+        <div id="dashboard" class="page active">
+            <h1 style="margin-bottom: 2rem; color: var(--primary-blue);">Dashboard</h1>
+            
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <h3>Prenotazioni Oggi</h3>
+                    <div class="value" id="bookingsToday">5</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Natanti in Giro</h3>
+                    <div class="value" id="boatsOut">3</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Fatturato Stimato</h3>
+                    <div class="value" id="estimatedRevenue">€1.200</div>
+                </div>
+            </div>
+
+            <div class="upcoming-returns">
+                <h2>Prossimi Rientri</h2>
+                <div id="upcomingReturnsList">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- New Booking Page -->
+        <div id="new-booking" class="page">
+            <div class="form-section">
+                <h2>Nuova Prenotazione</h2>
+                
+                <div class="toggle-buttons">
+                    <button class="toggle-btn active" id="toggle-gommone" onclick="toggleBookingType('gommone')">Gommone</button>
+                    <button class="toggle-btn" id="toggle-escursione" onclick="toggleBookingType('escursione')">Escursione</button>
+                </div>
+
+                <!-- Gommone Form -->
+                <div id="form-gommone">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cliente-gommone">Cliente *</label>
+                            <select id="cliente-gommone" onchange="updateGommonePrice()">
+                                <option value="">Seleziona cliente...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="natante-gommone">Natante *</label>
+                            <select id="natante-gommone" onchange="updateGommonePrice()">
+                                <option value="">Seleziona natante...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="data-gommone">Data *</label>
+                            <input type="date" id="data-gommone" value="2026-04-12" onchange="updateGommonePrice()">
+                        </div>
+                        <div class="form-group">
+                            <label for="ora-inizio-gommone">Ora Inizio *</label>
+                            <input type="time" id="ora-inizio-gommone" value="10:00" onchange="updateGommonePrice()">
+                        </div>
+                        <div class="form-group">
+                            <label for="ora-fine-gommone">Ora Fine *</label>
+                            <input type="time" id="ora-fine-gommone" value="14:00" onchange="updateGommonePrice()">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="persone-gommone">Numero Persone (opzionale)</label>
+                        <input type="number" id="persone-gommone" min="1" max="12" onchange="validatePersone()">
+                    </div>
+                    <div class="price-display" id="price-gommone">Prezzo: €0</div>
+                    <button class="btn btn-primary" onclick="saveBooking('gommone')">Salva Prenotazione</button>
+                </div>
+
+                <!-- Escursione Form -->
+                <div id="form-escursione" class="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cliente-escursione">Cliente *</label>
+                            <select id="cliente-escursione" onchange="updateEscursionePrice()">
+                                <option value="">Seleziona cliente...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="barca-escursione">Barca *</label>
+                            <select id="barca-escursione" onchange="updateEscursionePrice()">
+                                <option value="">Seleziona barca...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="data-escursione">Data *</label>
+                            <input type="date" id="data-escursione" value="2026-04-12" onchange="updateEscursionePrice()">
+                        </div>
+                        <div class="form-group">
+                            <label for="ora-inizio-escursione">Ora Inizio *</label>
+                            <input type="time" id="ora-inizio-escursione" value="09:00" onchange="updateEscursionePrice()">
+                        </div>
+                        <div class="form-group">
+                            <label for="ora-fine-escursione">Ora Fine *</label>
+                            <input type="time" id="ora-fine-escursione" value="13:00" onchange="updateEscursionePrice()">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="modalita-escursione">Modalità *</label>
+                            <select id="modalita-escursione" onchange="updateEscursionePrice()">
+                                <option value="">Seleziona modalità...</option>
+                                <option value="condivisione">Condivisione</option>
+                                <option value="esclusiva">Esclusiva</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="persone-escursione">Numero Persone *</label>
+                            <input type="number" id="persone-escursione" min="1" max="12" required onchange="updateEscursionePrice()">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="tipo-giro">Tipo Giro *</label>
+                        <select id="tipo-giro" onchange="updateEscursionePrice()">
+                            <option value="">Seleziona tipo...</option>
+                            <option value="standard">Standard</option>
+                            <option value="personalizzato">Personalizzato</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="posti-disponibili-container" class="hidden">
+                        <label>Posti Disponibili</label>
+                        <div id="posti-disponibili" style="padding: 0.75rem; background: var(--light-blue); border-radius: 4px;"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="note-escursione">Note</label>
+                        <textarea id="note-escursione" rows="3"></textarea>
+                    </div>
+                    <div class="price-display" id="price-escursione">Prezzo: €0</div>
+                    <button class="btn btn-primary" onclick="saveBooking('escursione')">Salva Prenotazione</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar Page -->
+        <div id="calendar" class="page">
+            <div class="calendar-container">
+                <div class="calendar-header">
+                    <h2 style="color: var(--primary-blue);">Calendario Prenotazioni</h2>
+                    <div class="calendar-nav">
+                        <button class="btn btn-secondary" onclick="changeDate(-1)">← Precedente</button>
+                        <span id="currentDate" style="font-weight: 500; padding: 0 1rem;">12 Aprile 2026</span>
+                        <button class="btn btn-secondary" onclick="changeDate(1)">Successivo →</button>
+                    </div>
+                </div>
+                <table class="calendar-table" id="calendarTable">
+                    <thead>
+                        <tr>
+                            <th>Natante/Barca</th>
+                            <th>08:00</th>
+                            <th>09:00</th>
+                            <th>10:00</th>
+                            <th>11:00</th>
+                            <th>12:00</th>
+                            <th>13:00</th>
+                            <th>14:00</th>
+                            <th>15:00</th>
+                            <th>16:00</th>
+                            <th>17:00</th>
+                            <th>18:00</th>
+                            <th>19:00</th>
+                        </tr>
+                    </thead>
+                    <tbody id="calendarBody">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Customer Page -->
+        <div id="customer" class="page">
+            <div class="customer-info">
+                <div class="customer-header">
+                    <h2 style="color: var(--primary-blue);">Scheda Cliente</h2>
+                    <button class="btn btn-primary" onclick="showNewCustomerForm()">Nuovo Cliente</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="search-customer">Cerca Cliente</label>
+                    <select id="search-customer" onchange="loadCustomer()">
+                        <option value="">Seleziona cliente...</option>
+                    </select>
+                </div>
+
+                <div id="customer-details" class="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="customer-name">Nome Completo *</label>
+                            <input type="text" id="customer-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="customer-phone">Telefono *</label>
+                            <input type="tel" id="customer-phone">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="customer-email">Email</label>
+                            <input type="email" id="customer-email">
+                        </div>
+                        <div class="form-group">
+                            <label for="customer-id">ID Cliente</label>
+                            <input type="text" id="customer-id" readonly>
+                        </div>
+                    </div>
+
+                    <div class="document-section">
+                        <h3 style="margin-bottom: 1rem; color: var(--primary-blue);">Documenti</h3>
+                        
+                        <div class="document-item">
+                            <div>
+                                <strong>Documento di Identità</strong>
+                            </div>
+                            <div class="document-status" id="doc-id-status">
+                                <span class="status-missing">— Mancante</span>
+                                <button class="btn btn-primary" onclick="uploadDocument('id')">Carica</button>
+                            </div>
+                        </div>
+
+                        <div class="document-item">
+                            <div>
+                                <strong>Patente Nautica</strong>
+                            </div>
+                            <div class="document-status" id="doc-patente-status">
+                                <span class="status-missing">— Mancante</span>
+                                <button class="btn btn-primary" onclick="uploadDocument('patente')">Carica</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="saveCustomer()">Salva Cliente</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Booking Detail Modal -->
+    <div class="modal" id="bookingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Dettaglio Prenotazione</h3>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            <div id="modalBody">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock Data
+        const clients = [
+            { id: 1, nome: 'Mario Rossi', telefono: '3331234567', email: 'mario@email.it', documento: true, patente: false },
+            { id: 2, nome: 'Luca Bianchi', telefono: '3478901234', email: 'luca@gmail.com', documento: true, patente: true },
+            { id: 3, nome: 'Anna Verdi', telefono: '3201122334', email: 'anna@verdi.it', documento: true, patente: true },
+            { id: 4, nome: 'Giulia Neri', telefono: '3398765432', email: 'giulia@neri.it', documento: true, patente: true },
+            { id: 5, nome: 'Paolo Blu', telefono: '3351234567', email: 'paolo@blu.it', documento: false, patente: false }
+        ];
+
+        const boats = [
+            { id: 'L02', nome: 'Gommone L02', tipo: 'Gommone', cv: 150, posti: 6, prezzoBassa: 25, prezzoAlta: 30 },
+            { id: 'L05', nome: 'Gommone L05', tipo: 'Gommone', cv: 100, posti: 5, prezzoBassa: 20, prezzoAlta: 25 },
+            { id: 'L10', nome: 'Gommone L10', tipo: 'Gommone', cv: 200, posti: 8, prezzoBassa: 35, prezzoAlta: 40 },
+            { id: 'AUR', nome: 'Yacht Aurora', tipo: 'Yacht', cv: 300, posti: 12, prezzoBassa: 120, prezzoAlta: 150, escursioni: [
+                { tipo: 'Standard', nome: 'Isole Tremiti – 4h', prezzoEsclusiva: 600, prezzoPersona: 50 }
+            ]}
+        ];
+
+        const bookings = [
+            { id: 101, tipo: 'Gommone', clienteId: 1, clienteNome: 'Mario Rossi', natanteId: 'L02', data: '2026-04-12', oraInizio: '10:00', oraFine: '14:00', persone: 4, prezzo: 120, stato: 'Confermata', ciclo: 'Ritirato' },
+            { id: 102, tipo: 'Escursione', clienteId: 2, clienteNome: 'Luca Bianchi', natanteId: 'AUR', data: '2026-04-12', oraInizio: '09:00', oraFine: '13:00', persone: 6, modalita: 'Condivisione', tipoGiro: 'Standard', prezzo: 300, stato: 'Confermata', ciclo: 'Non ritirato' },
+            { id: 103, tipo: 'Escursione', clienteId: 3, clienteNome: 'Anna Verdi', natanteId: 'AUR', data: '2026-04-12', oraInizio: '15:00', oraFine: '19:00', persone: 8, modalita: 'Esclusiva', tipoGiro: 'Personalizzato', prezzo: 700, stato: 'Opzione', ciclo: '—' },
+            { id: 104, tipo: 'Gommone', clienteId: 2, clienteNome: 'Luca Bianchi', natanteId: 'L05', data: '2026-04-12', oraInizio: '08:00', oraFine: '12:00', persone: 3, prezzo: 80, stato: 'Confermata', ciclo: 'Rientrato' },
+            { id: 105, tipo: 'Gommone', clienteId: 4, clienteNome: 'Giulia Neri', natanteId: 'L10', data: '2026-04-12', oraInizio: '14:00', oraFine: '18:00', persone: 7, prezzo: 140, stato: 'Confermata', ciclo: 'Ritirato' }
+        ];
+
+        let currentDate = new Date('2026-04-12');
+        let currentBookingType = 'gommone';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            populateSelects();
+            updateDashboard();
+            renderCalendar();
+            setupSearch();
+        });
+
+        // Navigation
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+            
+            document.getElementById(pageId).classList.add('active');
+            document.getElementById('nav-' + pageId).classList.add('active');
+        }
+
+        // Populate Selects
+        function populateSelects() {
+            const clienteSelects = ['cliente-gommone', 'cliente-escursione', 'search-customer'];
+            clienteSelects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                clients.forEach(client => {
+                    const option = document.createElement('option');
+                    option.value = client.id;
+                    option.textContent = `${client.nome} (${client.telefono})`;
+                    select.appendChild(option);
+                });
+            });
+
+            const natanteSelect = document.getElementById('natante-gommone');
+            boats.filter(b => b.tipo === 'Gommone').forEach(boat => {
+                const option = document.createElement('option');
+                option.value = boat.id;
+                option.textContent = `${boat.nome} (${boat.cv} CV, ${boat.posti} posti)`;
+                natanteSelect.appendChild(option);
+            });
+
+            const barcaSelect = document.getElementById('barca-escursione');
+            boats.filter(b => b.tipo === 'Yacht').forEach(boat => {
+                const option = document.createElement('option');
+                option.value = boat.id;
+                option.textContent = `${boat.nome} (${boat.cv} CV, ${boat.posti} posti)`;
+                barcaSelect.appendChild(option);
+            });
+        }
+
+        // Toggle Booking Type
+        function toggleBookingType(type) {
+            currentBookingType = type;
+            document.getElementById('toggle-gommone').classList.toggle('active', type === 'gommone');
+            document.getElementById('toggle-escursione').classList.toggle('active', type === 'escursione');
+            document.getElementById('form-gommone').classList.toggle('hidden', type !== 'gommone');
+            document.getElementById('form-escursione').classList.toggle('hidden', type !== 'escursione');
+        }
+
+        // Update Gommone Price
+        function updateGommonePrice() {
+            const natanteId = document.getElementById('natante-gommone').value;
+            const data = document.getElementById('data-gommone').value;
+            const oraInizio = document.getElementById('ora-inizio-gommone').value;
+            const oraFine = document.getElementById('ora-fine-gommone').value;
+
+            if (!natanteId || !data || !oraInizio || !oraFine) {
+                document.getElementById('price-gommone').textContent = 'Prezzo: €0';
+                return;
+            }
+
+            const boat = boats.find(b => b.id === natanteId);
+            if (!boat) return;
+
+            const inizio = new Date(`${data}T${oraInizio}`);
+            const fine = new Date(`${data}T${oraFine}`);
+            const ore = (fine - inizio) / (1000 * 60 * 60);
+
+            // Determine if high or low season (simplified: April = high)
+            const month = new Date(data).getMonth();
+            const isHighSeason = month >= 3 && month <= 8; // April to September
+            const prezzoOra = isHighSeason ? boat.prezzoAlta : boat.prezzoBassa;
+
+            const prezzo = ore * prezzoOra;
+            document.getElementById('price-gommone').textContent = `Prezzo: €${prezzo.toFixed(2)}`;
+        }
+
+        // Update Escursione Price
+        function updateEscursionePrice() {
+            const barcaId = document.getElementById('barca-escursione').value;
+            const modalita = document.getElementById('modalita-escursione').value;
+            const persone = parseInt(document.getElementById('persone-escursione').value) || 0;
+            const tipoGiro = document.getElementById('tipo-giro').value;
+
+            if (!barcaId || !modalita || !tipoGiro) {
+                document.getElementById('price-escursione').textContent = 'Prezzo: €0';
+                document.getElementById('posti-disponibili-container').classList.add('hidden');
+                return;
+            }
+
+            const boat = boats.find(b => b.id === barcaId);
+            if (!boat || !boat.escursioni) return;
+
+            let prezzo = 0;
+
+            if (modalita === 'condivisione') {
+                document.getElementById('posti-disponibili-container').classList.remove('hidden');
+                const postiOccupati = getOccupiedSeats(barcaId, document.getElementById('data-escursione').value);
+                const postiDisponibili = boat.posti - postiOccupati;
+                document.getElementById('posti-disponibili').textContent = `${postiDisponibili} posti disponibili su ${boat.posti}`;
+
+                if (tipoGiro === 'standard' && boat.escursioni[0]) {
+                    prezzo = persone * boat.escursioni[0].prezzoPersona;
+                } else if (tipoGiro === 'personalizzato') {
+                    // Prezzo modificabile manualmente
+                    prezzo = 0;
+                }
+            } else if (modalita === 'esclusiva') {
+                document.getElementById('posti-disponibili-container').classList.add('hidden');
+                if (tipoGiro === 'standard' && boat.escursioni[0]) {
+                    prezzo = boat.escursioni[0].prezzoEsclusiva;
+                } else if (tipoGiro === 'personalizzato') {
+                    // Prezzo modificabile manualmente
+                    prezzo = 0;
+                }
+            }
+
+            document.getElementById('price-escursione').textContent = `Prezzo: €${prezzo.toFixed(2)}`;
+        }
+
+        function getOccupiedSeats(boatId, data) {
+            return bookings
+                .filter(b => b.natanteId === boatId && b.data === data && b.modalita === 'Condivisione')
+                .reduce((sum, b) => sum + (b.persone || 0), 0);
+        }
+
+        // Validate Persone
+        function validatePersone() {
+            const natanteId = document.getElementById('natante-gommone').value;
+            const persone = parseInt(document.getElementById('persone-gommone').value) || 0;
+
+            if (natanteId && persone > 0) {
+                const boat = boats.find(b => b.id === natanteId);
+                if (boat && persone > boat.posti) {
+                    alert(`Attenzione: questo natante può ospitare massimo ${boat.posti} persone!`);
+                    document.getElementById('persone-gommone').value = boat.posti;
+                }
+            }
+        }
+
+        // Save Booking
+        function saveBooking(type) {
+            alert(`Prenotazione ${type} salvata con successo!`);
+            // In a real app, this would send data to backend
+        }
+
+        // Dashboard
+        function updateDashboard() {
+            const today = currentDate.toISOString().split('T')[0];
+            const todayBookings = bookings.filter(b => b.data === today);
+            
+            document.getElementById('bookingsToday').textContent = todayBookings.length;
+            document.getElementById('boatsOut').textContent = todayBookings.filter(b => b.ciclo === 'Ritirato').length;
+            
+            const revenue = todayBookings.reduce((sum, b) => sum + b.prezzo, 0);
+            document.getElementById('estimatedRevenue').textContent = `€${revenue}`;
+
+            const upcoming = todayBookings
+                .filter(b => b.ciclo === 'Ritirato' || b.ciclo === 'Non ritirato')
+                .sort((a, b) => a.oraFine.localeCompare(b.oraFine))
+                .slice(0, 3);
+
+            const list = document.getElementById('upcomingReturnsList');
+            list.innerHTML = '';
+            upcoming.forEach(booking => {
+                const div = document.createElement('div');
+                div.className = 'return-item';
+                div.innerHTML = `
+                    <strong>${booking.clienteNome}</strong> - ${booking.natanteId}<br>
+                    Rientro previsto: ${booking.oraFine} | ${booking.tipo}
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // Calendar
+        function renderCalendar() {
+            const tbody = document.getElementById('calendarBody');
+            tbody.innerHTML = '';
+
+            const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const dayBookings = bookings.filter(b => b.data === dateStr);
+
+            boats.forEach(boat => {
+                const row = document.createElement('tr');
+                const boatCell = document.createElement('td');
+                boatCell.style.fontWeight = 'bold';
+                boatCell.textContent = `${boat.nome} (${boat.cv} CV)`;
+                row.appendChild(boatCell);
+
+                timeSlots.forEach(slot => {
+                    const cell = document.createElement('td');
+                    const slotBookings = dayBookings.filter(b => 
+                        b.natanteId === boat.id && 
+                        b.oraInizio <= slot && 
+                        b.oraFine > slot
+                    );
+
+                    slotBookings.forEach(booking => {
+                        const block = document.createElement('div');
+                        block.className = `booking-block ${getStatusClass(booking.stato, booking.ciclo)}`;
+                        block.onclick = () => showBookingDetail(booking);
+                        block.innerHTML = `
+                            <div><strong>${booking.clienteNome}</strong></div>
+                            <div class="time-slot">${booking.oraInizio} - ${booking.oraFine}</div>
+                            <span class="badge">${booking.stato}</span>
+                        `;
+                        cell.appendChild(block);
+                    });
+
+                    row.appendChild(cell);
+                });
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function getStatusClass(stato, ciclo) {
+            if (ciclo === 'Rientrato') return 'rientrato';
+            if (ciclo === 'Ritirato') return 'ritirato';
+            if (stato === 'Confermata') return 'confirmed';
+            if (stato === 'Opzione') return 'option';
+            return 'confirmed';
+        }
+
+        function changeDate(delta) {
+            currentDate.setDate(currentDate.getDate() + delta);
+            document.getElementById('currentDate').textContent = formatDate(currentDate);
+            renderCalendar();
+        }
+
+        function formatDate(date) {
+            const months = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 
+                          'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+            return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+        }
+
+        function showBookingDetail(booking) {
+            const modal = document.getElementById('bookingModal');
+            const modalBody = document.getElementById('modalBody');
+            
+            modalBody.innerHTML = `
+                <p><strong>ID:</strong> ${booking.id}</p>
+                <p><strong>Tipo:</strong> ${booking.tipo}</p>
+                <p><strong>Cliente:</strong> ${booking.clienteNome}</p>
+                <p><strong>Natante/Barca:</strong> ${booking.natanteId}</p>
+                <p><strong>Data:</strong> ${booking.data}</p>
+                <p><strong>Orario:</strong> ${booking.oraInizio} - ${booking.oraFine}</p>
+                <p><strong>Persone:</strong> ${booking.persone || 'N/A'}</p>
+                ${booking.modalita ? `<p><strong>Modalità:</strong> ${booking.modalita}</p>` : ''}
+                ${booking.tipoGiro ? `<p><strong>Tipo Giro:</strong> ${booking.tipoGiro}</p>` : ''}
+                <p><strong>Prezzo:</strong> €${booking.prezzo}</p>
+                <p><strong>Stato:</strong> ${booking.stato}</p>
+                <p><strong>Ciclo:</strong> ${booking.ciclo}</p>
+                <div style="margin-top: 1.5rem;">
+                    ${booking.ciclo === 'Ritirato' ? 
+                        '<button class="btn btn-primary" onclick="markAsReturned(' + booking.id + ')">Segna come Rientrato</button>' : 
+                        ''}
+                    <button class="btn btn-secondary" onclick="closeModal()" style="margin-left: 1rem;">Chiudi</button>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+
+        function markAsReturned(bookingId) {
+            const booking = bookings.find(b => b.id === bookingId);
+            if (booking) {
+                booking.ciclo = 'Rientrato';
+                alert('Prenotazione segnata come rientrata!');
+                renderCalendar();
+                updateDashboard();
+                closeModal();
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('bookingModal').classList.remove('active');
+        }
+
+        // Customer Management
+        function loadCustomer() {
+            const customerId = document.getElementById('search-customer').value;
+            if (!customerId) {
+                document.getElementById('customer-details').classList.add('hidden');
+                return;
+            }
+
+            const customer = clients.find(c => c.id == customerId);
+            if (customer) {
+                document.getElementById('customer-name').value = customer.nome;
+                document.getElementById('customer-phone').value = customer.telefono;
+                document.getElementById('customer-email').value = customer.email;
+                document.getElementById('customer-id').value = customer.id;
+
+                updateDocumentStatus('id', customer.documento);
+                updateDocumentStatus('patente', customer.patente);
+
+                document.getElementById('customer-details').classList.remove('hidden');
+            }
+        }
+
+        function updateDocumentStatus(type, present) {
+            const statusDiv = document.getElementById(`doc-${type}-status`);
+            if (present) {
+                statusDiv.innerHTML = `
+                    <span class="status-present">✓ Presente</span>
+                    <button class="btn btn-secondary" onclick="viewDocument('${type}')">Visualizza</button>
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <span class="status-missing">— Mancante</span>
+                    <button class="btn btn-primary" onclick="uploadDocument('${type}')">Carica</button>
+                `;
+            }
+        }
+
+        function uploadDocument(type) {
+            alert(`Caricamento documento ${type}... (funzionalità mockup)`);
+            // In real app, this would open file picker and upload
+        }
+
+        function viewDocument(type) {
+            alert(`Visualizzazione documento ${type}... (funzionalità mockup)`);
+        }
+
+        function saveCustomer() {
+            alert('Cliente salvato con successo!');
+        }
+
+        function showNewCustomerForm() {
+            document.getElementById('search-customer').value = '';
+            document.getElementById('customer-name').value = '';
+            document.getElementById('customer-phone').value = '';
+            document.getElementById('customer-email').value = '';
+            document.getElementById('customer-id').value = 'Nuovo';
+            updateDocumentStatus('id', false);
+            updateDocumentStatus('patente', false);
+            document.getElementById('customer-details').classList.remove('hidden');
+        }
+
+        // Search
+        function setupSearch() {
+            const searchInput = document.getElementById('globalSearch');
+            const searchResults = document.getElementById('searchResults');
+
+            searchInput.addEventListener('input', function(e) {
+                const query = e.target.value.toLowerCase().trim();
+                
+                if (query.length < 2) {
+                    searchResults.classList.remove('active');
+                    return;
+                }
+
+                const results = [];
+
+                // Search clients
+                clients.forEach(client => {
+                    if (client.nome.toLowerCase().includes(query) || 
+                        client.telefono.includes(query) || 
+                        client.email.toLowerCase().includes(query)) {
+                        results.push({ type: 'Cliente', text: `${client.nome} (${client.telefono})`, id: client.id });
+                    }
+                });
+
+                // Search boats
+                boats.forEach(boat => {
+                    if (boat.nome.toLowerCase().includes(query) || 
+                        boat.id.toLowerCase().includes(query) || 
+                        boat.cv.toString().includes(query)) {
+                        results.push({ type: 'Natante', text: `${boat.nome} (${boat.cv} CV)`, id: boat.id });
+                    }
+                });
+
+                // Search bookings
+                bookings.forEach(booking => {
+                    if (booking.clienteNome.toLowerCase().includes(query) || 
+                        booking.natanteId.toLowerCase().includes(query) || 
+                        booking.data.includes(query) ||
+                        booking.id.toString().includes(query)) {
+                        results.push({ type: 'Prenotazione', text: `#${booking.id} - ${booking.clienteNome} - ${booking.data}`, id: booking.id });
+                    }
+                });
+
+                displaySearchResults(results);
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.classList.remove('active');
+                }
+            });
+        }
+
+        function displaySearchResults(results) {
+            const searchResults = document.getElementById('searchResults');
+            searchResults.innerHTML = '';
+
+            if (results.length === 0) {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.textContent = 'Nessun risultato trovato';
+                searchResults.appendChild(item);
+            } else {
+                results.slice(0, 10).forEach(result => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item';
+                    item.innerHTML = `
+                        <div class="search-result-type">${result.type}</div>
+                        <div>${result.text}</div>
+                    `;
+                    item.onclick = () => {
+                        handleSearchResult(result);
+                        searchResults.classList.remove('active');
+                        document.getElementById('globalSearch').value = '';
+                    };
+                    searchResults.appendChild(item);
+                });
+            }
+
+            searchResults.classList.add('active');
+        }
+
+        function handleSearchResult(result) {
+            if (result.type === 'Cliente') {
+                showPage('customer');
+                document.getElementById('search-customer').value = result.id;
+                loadCustomer();
+            } else if (result.type === 'Prenotazione') {
+                showPage('calendar');
+                const booking = bookings.find(b => b.id === result.id);
+                if (booking) {
+                    showBookingDetail(booking);
+                }
+            } else if (result.type === 'Natante') {
+                showPage('new-booking');
+            }
+        }
+    </script>
+</body>
+</html>

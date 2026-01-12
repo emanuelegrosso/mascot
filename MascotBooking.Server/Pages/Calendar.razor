@@ -1,0 +1,794 @@
+@page "/calendar"
+@page "/calendar/{date?}/{view?}"
+@inject ICalendarService CalendarService
+@inject IBookingService BookingService
+@inject AppDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Calendario Prenotazioni</PageTitle>
+
+<div class="container-fluid">
+    <h2 class="mb-4">Calendario Prenotazioni</h2>
+
+    <!-- Messaggio Feedback Stato -->
+    @if (!string.IsNullOrEmpty(statusUpdateMessage))
+    {
+        <div class="alert alert-@(statusUpdateSuccess ? "success" : "danger") alert-dismissible fade show" role="alert">
+            @statusUpdateMessage
+            <button type="button" class="btn-close" @onclick="() => { statusUpdateMessage = null; }" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Selezione Vista -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="viewType" id="viewDaily" 
+                           checked="@(viewType == CalendarViewType.Giornaliera)" 
+                           @onchange="() => ChangeView(CalendarViewType.Giornaliera)" />
+                    <label class="btn btn-outline-primary" for="viewDaily">Giornaliera</label>
+
+                    <input type="radio" class="btn-check" name="viewType" id="viewWeekly" 
+                           checked="@(viewType == CalendarViewType.Settimanale)" 
+                           @onchange="() => ChangeView(CalendarViewType.Settimanale)" />
+                    <label class="btn btn-outline-primary" for="viewWeekly">Settimanale</label>
+
+                    <input type="radio" class="btn-check" name="viewType" id="viewMonthly" 
+                           checked="@(viewType == CalendarViewType.Mensile)" 
+                           @onchange="() => ChangeView(CalendarViewType.Mensile)" />
+                    <label class="btn btn-outline-primary" for="viewMonthly">Mensile</label>
+
+                    <input type="radio" class="btn-check" name="viewType" id="viewAnnual" 
+                           checked="@(viewType == CalendarViewType.Annuale)" 
+                           @onchange="() => ChangeView(CalendarViewType.Annuale)" />
+                    <label class="btn btn-outline-primary" for="viewAnnual">Annuale</label>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleLegend">
+                    <span class="oi oi-info"></span> Legenda Colori
+                </button>
+            </div>
+            
+            @if (showLegend)
+            {
+                <div class="mt-3 pt-3 border-top">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Gommoni</h6>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="badge booking-40cv me-2" style="width: 30px; height: 20px; border: none;"></div>
+                                <span>40 CV</span>
+                            </div>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="badge booking-100cv me-2" style="width: 30px; height: 20px; border: none;"></div>
+                                <span>100 CV</span>
+                            </div>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="badge booking-150cv me-2" style="width: 30px; height: 20px; border: none;"></div>
+                                <span>150 CV</span>
+                            </div>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="badge booking-200cv me-2" style="width: 30px; height: 20px; border: none;"></div>
+                                <span>200 CV</span>
+                            </div>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="badge booking-250cv me-2" style="width: 30px; height: 20px; border: none;"></div>
+                                <span>250 CV</span>
+                            </div>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="badge booking-400cv me-2" style="width: 30px; height: 20px; border: none;"></div>
+                                <span>400 CV</span>
+                            </div>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="badge booking-other me-2" style="width: 30px; height: 20px; border: none;"></div>
+                                <span>Altre potenze</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Escursioni</h6>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="badge booking-escursione me-2" style="width: 30px; height: 20px; border: none;"></div>
+                                <span>Escursione</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Vista Giornaliera -->
+    @if (viewType == CalendarViewType.Giornaliera)
+    {
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>@currentDate.ToString("dddd, dd MMMM yyyy")</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ChangeDate(-1)">
+                        <span class="oi oi-chevron-left"></span>
+                    </button>
+                    <input type="date" class="form-control form-control-sm" style="width: auto;" 
+                           value="@currentDate.ToString("yyyy-MM-dd")" @onchange="OnDateChanged" />
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ChangeDate(1)">
+                        <span class="oi oi-chevron-right"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (dailyBookings.Any())
+                {
+                    <div class="list-group">
+                        @foreach (var booking in dailyBookings)
+                        {
+                            var tooltipText = $"{booking.Customer.FullName} – {booking.Type} – {(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "Escursione")}";
+                            var colorClass = GetBookingColorClass(booking);
+                            var statusClass = booking.Status == BookingStatus.InAttesa ? "booking-status-waiting" : "";
+                            
+                            <div class="list-group-item booking-tooltip @statusClass" 
+                                 @onclick="() => ShowBookingDetail(booking)" 
+                                 style="cursor: pointer; border-left: 4px solid @GetBookingColor(booking);"
+                                 data-tooltip="@tooltipText">
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <h6 class="mb-1">@booking.Customer.FullName - @booking.Boat.Name</h6>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <select class="form-select form-select-sm status-select" 
+                                                style="width: auto; min-width: 120px;"
+                                                value="@booking.Status.ToString()"
+                                                @onchange="@((ChangeEventArgs e) => OnStatusChanged(booking, e))"
+                                                @onclick:stopPropagation="true">
+                                            <option value="@booking.Status.ToString()">@booking.Status</option>
+                                            @foreach (var validStatus in GetValidStatusesForBooking(booking))
+                                            {
+                                                <option value="@validStatus.ToString()">@validStatus</option>
+                                            }
+                                        </select>
+                                        <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span>
+                                    </div>
+                                </div>
+                                <p class="mb-1">
+                                    <span class="badge @colorClass">@booking.Type @(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "")</span>
+                                    - @GetBookingTimes(booking)
+                                    @if (booking.SkipperId.HasValue && booking.Skipper != null)
+                                    {
+                                        <span class="badge bg-info ms-1">⚓ @booking.Skipper.FullName</span>
+                                    }
+                                </p>
+                                <small>
+                                    Persone: @(booking.Adults + (booking.Children ?? 0))
+                                    @if (booking.Type == BookingType.Escursione)
+                                    {
+                                        var totalPersons = booking.Adults + (booking.Children ?? 0);
+                                        <text> | Capienza: @totalPersons/@booking.Boat.Capacity</text>
+                                        @if (totalPersons > booking.Boat.Capacity)
+                                        {
+                                            <span class="badge bg-danger ms-1">⚠️ Capienza superata!</span>
+                                        }
+                                    }
+                                    | Prezzo: €@booking.ActualPrice.ToString("F2")
+                                </small>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">Nessuna prenotazione per questa data</p>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Vista Settimanale -->
+    @if (viewType == CalendarViewType.Settimanale)
+    {
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Settimana @GetWeekRange()</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ChangeWeek(-1)">
+                        <span class="oi oi-chevron-left"></span> Precedente
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ChangeWeek(1)">
+                        Successivo <span class="oi oi-chevron-right"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Natante/Barca</th>
+                                @for (int i = 0; i < 7; i++)
+                                {
+                                    <th>@weekStart.AddDays(i).ToString("ddd dd/MM")</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var boat in allBoats)
+                            {
+                                <tr>
+                                    <td><strong>@boat.Name</strong></td>
+                                    @for (int i = 0; i < 7; i++)
+                                    {
+                                        var date = weekStart.AddDays(i);
+                                        var bookings = weeklyBookings
+                                            .Where(b => b.BoatId == boat.Id && 
+                                                   b.BookingDates.Any(bd => bd.Date.Date == date.Date))
+                                            .ToList();
+                                        <td>
+                                            @foreach (var booking in bookings)
+                                            {
+                                                var totalPersons = booking.Adults + (booking.Children ?? 0);
+                                                var tooltipText = $"{booking.Customer.FullName} – {booking.Type} – {(booking.Type == BookingType.Gommone ? $"{booking.Boat.Horsepower} CV" : "Escursione")}";
+                                                var colorClass = GetBookingColorClass(booking);
+                                                var statusClass = booking.Status == BookingStatus.InAttesa ? "booking-status-waiting" : "";
+                                                
+                                                <div class="badge @colorClass @statusClass mb-1 booking-tooltip" 
+                                                     style="cursor: pointer; display: block; text-align: left; position: relative;" 
+                                                     data-tooltip="@tooltipText"
+                                                     @onclick="() => ShowBookingDetail(booking)">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <div><strong>@booking.Customer.FullName</strong></div>
+                                                            <small>@totalPersons @(totalPersons == 1 ? "persona" : "persone")</small>
+                                                        </div>
+                                                        <select class="form-select form-select-sm status-select-small" 
+                                                                style="width: auto; min-width: 100px; font-size: 0.7rem; padding: 2px 4px;"
+                                                                value="@booking.Status.ToString()"
+                                                                @onchange="@((ChangeEventArgs e) => OnStatusChanged(booking, e))"
+                                                                @onclick:stopPropagation="true">
+                                                            <option value="@booking.Status.ToString()">@booking.Status</option>
+                                                            @foreach (var validStatus in GetValidStatusesForBooking(booking))
+                                                            {
+                                                                <option value="@validStatus.ToString()">@validStatus</option>
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Vista Mensile -->
+    @if (viewType == CalendarViewType.Mensile)
+    {
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>@currentMonth.ToString("MMMM yyyy")</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ChangeMonth(-1)">
+                        <span class="oi oi-chevron-left"></span>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ChangeMonth(1)">
+                        <span class="oi oi-chevron-right"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="calendar-grid">
+                    @foreach (var day in GetMonthDays())
+                    {
+                        var dayBookings = dailyBookings.Where(b => b.BookingDates.Any(bd => bd.Date.Date == day.Date)).ToList();
+                        var count = dayBookings.Count;
+                        var primaryColor = count > 0 ? GetBookingColor(dayBookings.First()) : "";
+                        
+                        // Calcola indicatori per tipologia
+                        var escursioniCount = dayBookings.Count(b => b.Type == BookingType.Escursione);
+                        var gommoni40 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 40);
+                        var gommoni100 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 100);
+                        var gommoni150 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 150);
+                        var gommoni200 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 200);
+                        var gommoni250 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 250);
+                        var gommoni300 = dayBookings.Count(b => b.Type == BookingType.Gommone && b.Boat.Horsepower == 300);
+                        var gommoniOther = dayBookings.Count(b => b.Type == BookingType.Gommone && 
+                            !new[] { 40, 100, 150, 200, 250, 300 }.Contains(b.Boat.Horsepower));
+                        
+                        var indicators = new List<string>();
+                        if (escursioniCount > 0) indicators.Add($"Esc:{escursioniCount}");
+                        if (gommoni40 > 0) indicators.Add($"40:{gommoni40}");
+                        if (gommoni100 > 0) indicators.Add($"100:{gommoni100}");
+                        if (gommoni150 > 0) indicators.Add($"150:{gommoni150}");
+                        if (gommoni200 > 0) indicators.Add($"200:{gommoni200}");
+                        if (gommoni250 > 0) indicators.Add($"250:{gommoni250}");
+                        if (gommoni300 > 0) indicators.Add($"300:{gommoni300}");
+                        if (gommoniOther > 0) indicators.Add($"Alt:{gommoniOther}");
+                        
+                        <div class="calendar-day @(day.Month != currentMonth.Month ? "other-month" : "")" 
+                             @onclick="async () => { if (count > 0) { currentDate = day; viewType = CalendarViewType.Giornaliera; await LoadData(); } }"
+                             style="cursor: @(count > 0 ? "pointer" : "default");">
+                            <div class="day-number">@day.Day</div>
+                            @if (count > 0)
+                            {
+                                <div class="day-indicator">
+                                    <span class="badge" style="background-color: @primaryColor; color: white;">@count</span>
+                                    @if (indicators.Any())
+                                    {
+                                        <div class="day-indicators-detail" style="font-size: 0.65rem; margin-top: 2px;">
+                                            @string.Join(" | ", indicators)
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Vista Annuale -->
+    @if (viewType == CalendarViewType.Annuale)
+    {
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Anno @currentYear</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ChangeYear(-1)">
+                        <span class="oi oi-chevron-left"></span>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ChangeYear(1)">
+                        <span class="oi oi-chevron-right"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    @for (int month = 1; month <= 12; month++)
+                    {
+                        var count = annualCounts.ContainsKey(month) ? annualCounts[month] : 0;
+                        var saturation = count switch
+                        {
+                            > 20 => "high",
+                            > 10 => "medium",
+                            _ => "low"
+                        };
+                        <div class="col-md-3 mb-3">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h6>@GetMonthName(month)</h6>
+                                    <div class="saturation-indicator @saturation">
+                                        <span class="badge bg-@(count > 20 ? "danger" : count > 10 ? "warning" : "success")">
+                                            @count prenotazioni
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal Dettaglio Prenotazione -->
+@if (selectedBooking != null)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Dettaglio Prenotazione</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDetail"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>ID:</strong> @selectedBooking.Id</p>
+                    <p><strong>Cliente:</strong> @selectedBooking.Customer.FullName</p>
+                    <p><strong>Telefono:</strong> @selectedBooking.Customer.Phone</p>
+                    <p><strong>Natante:</strong> @selectedBooking.Boat.Name</p>
+                    <p><strong>Tipo:</strong> @selectedBooking.Type</p>
+                    @if (selectedBooking.SkipperId.HasValue && selectedBooking.Skipper != null)
+                    {
+                        <p><strong>⚓ Skipper:</strong> @selectedBooking.Skipper.FullName</p>
+                    }
+                    <p><strong>Date:</strong> @string.Join(", ", selectedBooking.BookingDates.Select(bd => bd.Date.ToString("dd/MM/yyyy")))</p>
+                    <p><strong>Persone:</strong> @selectedBooking.Adults adulti @(selectedBooking.Children.HasValue ? $"+ {selectedBooking.Children} bambini" : "")</p>
+                    <p><strong>Prezzo:</strong> €@selectedBooking.ActualPrice.ToString("F2")</p>
+                    <p><strong>Stato:</strong> 
+                        <select class="form-select d-inline-block" style="width: auto; display: inline-block !important; max-width: 200px;"
+                                value="@selectedBooking.Status.ToString()"
+                                @onchange="@((ChangeEventArgs e) => OnStatusChanged(selectedBooking, e))">
+                            <option value="@selectedBooking.Status.ToString()">@selectedBooking.Status</option>
+                            @foreach (var validStatus in GetValidStatusesForBooking(selectedBooking))
+                            {
+                                <option value="@validStatus.ToString()">@validStatus</option>
+                            }
+                        </select>
+                        <span class="badge bg-@GetStatusBadgeColor(selectedBooking.Status) ms-2">@selectedBooking.Status</span>
+                    </p>
+                    @if (!string.IsNullOrEmpty(selectedBooking.Notes))
+                    {
+                        <p><strong>Note:</strong> @selectedBooking.Notes</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDetail">Chiudi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private CalendarViewType viewType = CalendarViewType.Giornaliera;
+    private DateTime currentDate = DateTime.Today;
+    private DateTime weekStart = DateTime.Today;
+    private DateTime currentMonth = DateTime.Today;
+    private int currentYear = DateTime.Today.Year;
+    private List<Booking> dailyBookings = new();
+    private List<Booking> weeklyBookings = new();
+    private Dictionary<DateTime, int> monthlyCounts = new();
+    private Dictionary<int, int> annualCounts = new();
+    private List<Boat> allBoats = new();
+    private Booking? selectedBooking = null;
+    private bool showLegend = false;
+    private string? statusUpdateMessage = null;
+    private bool statusUpdateSuccess = false;
+
+    [Parameter] public string? date { get; set; }
+    [Parameter] public string? view { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Parse query parameters or route parameters
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        
+        if (queryParams.ContainsKey("date") && DateTime.TryParse(queryParams["date"], out DateTime parsedDate))
+        {
+            currentDate = parsedDate;
+        }
+        else if (!string.IsNullOrEmpty(date) && DateTime.TryParse(date, out DateTime routeDate))
+        {
+            currentDate = routeDate;
+        }
+
+        if (queryParams.ContainsKey("view") && Enum.TryParse<CalendarViewType>(queryParams["view"], out CalendarViewType parsedView))
+        {
+            viewType = parsedView;
+        }
+        else if (!string.IsNullOrEmpty(view) && Enum.TryParse<CalendarViewType>(view, out CalendarViewType routeView))
+        {
+            viewType = routeView;
+        }
+
+        weekStart = currentDate.AddDays(-(int)currentDate.DayOfWeek);
+        currentMonth = new DateTime(currentDate.Year, currentDate.Month, 1);
+        currentYear = currentDate.Year;
+        allBoats = await DbContext.Boats.Where(b => b.IsActive).ToListAsync();
+        await LoadData();
+
+        // Check for bookingId to show detail
+        if (queryParams.ContainsKey("bookingId") && int.TryParse(queryParams["bookingId"], out int bookingId))
+        {
+            var booking = await BookingService.GetBookingByIdAsync(bookingId);
+            if (booking != null)
+            {
+                selectedBooking = booking;
+                // Switch to daily view and set date to booking date
+                if (booking.BookingDates.Any())
+                {
+                    currentDate = booking.BookingDates.First().Date;
+                    viewType = CalendarViewType.Giornaliera;
+                    await LoadData();
+                }
+            }
+        }
+    }
+
+    private async Task LoadData()
+    {
+        if (viewType == CalendarViewType.Giornaliera)
+        {
+            dailyBookings = await BookingService.GetBookingsByDateAsync(currentDate);
+        }
+        else if (viewType == CalendarViewType.Mensile)
+        {
+            monthlyCounts = await CalendarService.GetMonthlyViewAsync(currentMonth);
+            // Carica anche le prenotazioni per la vista mensile interattiva
+            var startDate = new DateTime(currentMonth.Year, currentMonth.Month, 1);
+            var endDate = startDate.AddMonths(1).AddDays(-1);
+            dailyBookings = await BookingService.GetBookingsByDateRangeAsync(startDate, endDate);
+        }
+        else if (viewType == CalendarViewType.Settimanale)
+        {
+            weeklyBookings = await BookingService.GetBookingsByDateRangeAsync(weekStart, weekStart.AddDays(6));
+        }
+        else if (viewType == CalendarViewType.Mensile)
+        {
+            monthlyCounts = await CalendarService.GetMonthlyViewAsync(currentMonth);
+        }
+        else if (viewType == CalendarViewType.Annuale)
+        {
+            annualCounts = await CalendarService.GetAnnualViewAsync(currentYear);
+        }
+    }
+
+    private async Task ChangeView(CalendarViewType newView)
+    {
+        viewType = newView;
+        await LoadData();
+    }
+
+    private async Task ChangeDate(int days)
+    {
+        currentDate = currentDate.AddDays(days);
+        await LoadData();
+    }
+
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out DateTime newDate))
+        {
+            currentDate = newDate;
+            await LoadData();
+        }
+    }
+
+    private async Task ChangeWeek(int weeks)
+    {
+        weekStart = weekStart.AddDays(weeks * 7);
+        await LoadData();
+    }
+
+    private async Task ChangeMonth(int months)
+    {
+        currentMonth = currentMonth.AddMonths(months);
+        await LoadData();
+    }
+
+    private async Task ChangeYear(int years)
+    {
+        currentYear += years;
+        await LoadData();
+    }
+
+    private void ToggleLegend()
+    {
+        showLegend = !showLegend;
+    }
+
+    private string GetBookingColor(Booking booking)
+    {
+        if (booking.Type == BookingType.Escursione)
+        {
+            return "#9370DB"; // Viola Medio
+        }
+        
+        // Gommone - colore basato su potenza
+        var horsepower = booking.Boat.Horsepower;
+        return horsepower switch
+        {
+            40 => "#1E90FF",  // Blu Dodger
+            100 => "#DC143C", // Rosso Cremisi
+            150 => "#32CD32", // Verde Lime
+            200 => "#FF8C00", // Arancione scuro
+            250 => "#8B4513", // Marrone
+            400 => "#2F2F2F", // Grigio scuro
+            _ => "#A9A9A9"   // Grigio neutro (altro/non definito)
+        };
+    }
+
+    private string GetBookingColorClass(Booking booking)
+    {
+        if (booking.Type == BookingType.Escursione)
+        {
+            return "booking-escursione";
+        }
+        
+        var horsepower = booking.Boat.Horsepower;
+        return horsepower switch
+        {
+            40 => "booking-40cv",
+            100 => "booking-100cv",
+            150 => "booking-150cv",
+            200 => "booking-200cv",
+            250 => "booking-250cv",
+            400 => "booking-400cv",
+            _ => "booking-other"
+        };
+    }
+
+    private string GetStatusBadgeColor(BookingStatus status)
+    {
+        return status switch
+        {
+            BookingStatus.Opzionata => "secondary", // Grigio chiaro
+            BookingStatus.Confermata => "primary", // Blu
+            BookingStatus.Pagata => "success", // Verde
+            BookingStatus.Ritirato => "warning", // Arancione
+            BookingStatus.Rientrato => "info", // Viola (usando info che è blu chiaro, simile a viola)
+            BookingStatus.Completata => "success", // Verde scuro (stesso di success ma più scuro nel CSS)
+            BookingStatus.Annullata => "danger", // Rosso
+            BookingStatus.InAttesa => "warning", // Giallo (mantenuto per retrocompatibilità)
+            _ => "secondary"
+        };
+    }
+
+    private async Task OnStatusChanged(Booking booking, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<BookingStatus>(e.Value?.ToString(), out BookingStatus newStatus))
+        {
+            try
+            {
+                await BookingService.UpdateBookingStatusAsync(booking.Id, newStatus);
+                booking.Status = newStatus;
+                statusUpdateMessage = $"Stato aggiornato a {newStatus}";
+                statusUpdateSuccess = true;
+                await LoadData(); // Ricarica dati
+                StateHasChanged();
+                
+                // Nascondi messaggio dopo 2 secondi
+                await Task.Delay(2000);
+                statusUpdateMessage = null;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                statusUpdateMessage = $"Errore: {ex.Message}";
+                statusUpdateSuccess = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private List<BookingStatus> GetValidStatusesForBooking(Booking booking)
+    {
+        var currentStatus = booking.Status;
+        var validTransitions = new List<BookingStatus>();
+
+        switch (currentStatus)
+        {
+            case BookingStatus.Opzionata:
+                validTransitions.AddRange(new[] { BookingStatus.Confermata, BookingStatus.Annullata });
+                break;
+
+            case BookingStatus.Confermata:
+                validTransitions.AddRange(new[] { BookingStatus.Pagata, BookingStatus.Annullata });
+                break;
+
+            case BookingStatus.Pagata:
+                if (booking.Type == BookingType.Gommone)
+                {
+                    validTransitions.Add(BookingStatus.Ritirato);
+                }
+                else // Escursione
+                {
+                    validTransitions.Add(BookingStatus.Completata);
+                }
+                break;
+
+            case BookingStatus.Ritirato:
+                validTransitions.Add(BookingStatus.Rientrato);
+                break;
+
+            case BookingStatus.Rientrato:
+                validTransitions.Add(BookingStatus.Completata);
+                break;
+
+            case BookingStatus.InAttesa:
+                validTransitions.AddRange(new[] { BookingStatus.Opzionata, BookingStatus.Confermata, BookingStatus.Annullata });
+                break;
+
+            // Annullata e Completata sono terminali - nessuna transizione
+            case BookingStatus.Annullata:
+            case BookingStatus.Completata:
+                break;
+        }
+
+        return validTransitions;
+    }
+
+    private string GetBookingTimes(Booking booking)
+    {
+        var times = booking.BookingDates
+            .Where(bd => bd.StartTime.HasValue && bd.EndTime.HasValue)
+            .Select(bd => $"{bd.StartTime!.Value:hh\\:mm}-{bd.EndTime!.Value:hh\\:mm}")
+            .ToList();
+        return times.Any() ? string.Join(", ", times) : "Orario non specificato";
+    }
+
+    private string GetWeekRange()
+    {
+        return $"{weekStart:dd/MM} - {weekStart.AddDays(6):dd/MM/yyyy}";
+    }
+
+    private List<DateTime> GetMonthDays()
+    {
+        var firstDay = new DateTime(currentMonth.Year, currentMonth.Month, 1);
+        var lastDay = firstDay.AddMonths(1).AddDays(-1);
+        var startDate = firstDay.AddDays(-(int)firstDay.DayOfWeek);
+        var days = new List<DateTime>();
+        
+        for (var date = startDate; date <= startDate.AddDays(41); date = date.AddDays(1))
+        {
+            days.Add(date);
+        }
+        
+        return days;
+    }
+
+    private string GetMonthName(int month)
+    {
+        return new DateTime(2024, month, 1).ToString("MMMM", new System.Globalization.CultureInfo("it-IT"));
+    }
+
+    private void ShowBookingDetail(Booking booking)
+    {
+        selectedBooking = booking;
+    }
+
+    private void CloseDetail()
+    {
+        selectedBooking = null;
+    }
+}
+
+<style>
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background-color: #dee2e6;
+    }
+
+    .calendar-day {
+        background-color: white;
+        padding: 10px;
+        min-height: 80px;
+        position: relative;
+    }
+
+    .calendar-day.other-month {
+        background-color: #f8f9fa;
+        color: #6c757d;
+    }
+
+    .day-number {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .day-indicator {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+    }
+
+    .day-indicators-detail {
+        font-size: 0.65rem;
+        margin-top: 2px;
+        color: #666;
+        white-space: nowrap;
+    }
+
+    .status-select {
+        z-index: 10;
+    }
+
+    .status-select-small {
+        z-index: 10;
+        background-color: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(0, 0, 0, 0.2);
+    }
+
+    .booking-status-completata {
+        background-color: #155724 !important;
+        color: white !important;
+    }
+
+    .booking-status-rientrato {
+        background-color: #6f42c1 !important;
+        color: white !important;
+    }
+</style>

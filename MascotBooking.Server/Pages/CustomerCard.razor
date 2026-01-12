@@ -1,0 +1,519 @@
+@page "/customer"
+@page "/customer/{customerId?}"
+@inject ICustomerService CustomerService
+@inject IBookingService BookingService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Scheda Cliente</PageTitle>
+
+<div class="container-fluid">
+    <h2 class="mb-4">Scheda Cliente</h2>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5>Cerca Cliente</h5>
+            <button class="btn btn-primary" @onclick="ShowNewCustomerForm">
+                <span class="oi oi-plus"></span> Nuovo Cliente
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Seleziona Cliente</label>
+                <select class="form-select" @onchange="LoadCustomer">
+                    <option value="0">Seleziona cliente...</option>
+                    @foreach (var customer in allCustomers)
+                    {
+                        <option value="@customer.Id">@customer.FullName (@customer.Phone)</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+
+    @if (customer.Id > 0 || isNewCustomer)
+    {
+        <div class="card">
+            <div class="card-header">
+                <h5>Dati Anagrafici</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Nome Completo</label>
+                        <input type="text" class="form-control" @bind="customer.FullName" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Telefono *</label>
+                        <input type="tel" class="form-control" @bind="customer.Phone" required />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="customer.Email" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">ID Cliente</label>
+                        <input type="text" class="form-control" value="@customer.Id" readonly />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Data di Nascita</label>
+                        <input type="date" class="form-control" @bind="customer.DateOfBirth" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Luogo di Nascita</label>
+                        <input type="text" class="form-control" @bind="customer.PlaceOfBirth" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Codice Fiscale</label>
+                        <input type="text" class="form-control" @bind="customer.TaxCode" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Indirizzo</label>
+                        <input type="text" class="form-control" @bind="customer.Address" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">CAP</label>
+                        <input type="text" class="form-control" @bind="customer.PostalCode" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Città</label>
+                        <input type="text" class="form-control" @bind="customer.City" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Nazione</label>
+                        <input type="text" class="form-control" @bind="customer.Country" />
+                    </div>
+                </div>
+
+                <!-- Documenti -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6>Documenti</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Documento d'Identità</label>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" @bind="customer.HasDocument" />
+                                    <label class="form-check-label">Presente</label>
+                                </div>
+                                @if (customer.HasDocument)
+                                {
+                                    <input type="text" class="form-control mb-2" @bind="customer.DocumentNumber" 
+                                           placeholder="Numero documento" />
+                                    <select class="form-select" @bind="customer.DocumentType">
+                                        <option value="@((int?)null)">Seleziona tipo...</option>
+                                        <option value="@((int)DocumentType.CartaIdentita)">Carta d'Identità</option>
+                                        <option value="@((int)DocumentType.Passaporto)">Passaporto</option>
+                                        <option value="@((int)DocumentType.PatenteGuida)">Patente di Guida</option>
+                                    </select>
+                                    <div class="mt-2">
+                                        <div class="btn-group w-100" role="group">
+                                            <label class="btn btn-outline-primary">
+                                                <span class="oi oi-cloud-upload"></span> Carica File
+                                                <InputFile class="d-none" OnChange="HandleDocumentUpload" 
+                                                           accept=".pdf,.jpg,.jpeg,.png" />
+                                            </label>
+                                            <button type="button" class="btn btn-outline-primary" @onclick="OpenCameraForDocument">
+                                                <span class="oi oi-camera"></span> Da Camera
+                                            </button>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(customer.DocumentFileUrl))
+                                        {
+                                            <div class="mt-2">
+                                                @if (customer.DocumentFileUrl.StartsWith("data:image"))
+                                                {
+                                                    <img src="@customer.DocumentFileUrl" alt="Documento" class="img-thumbnail" style="max-width: 200px; max-height: 200px;" />
+                                                }
+                                                else
+                                                {
+                                                    <a href="@customer.DocumentFileUrl" target="_blank" class="btn btn-sm btn-link">
+                                                        <span class="oi oi-eye"></span> Visualizza Documento
+                                                    </a>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-danger">— Mancante</span>
+                                }
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Patente Nautica</label>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" @bind="customer.HasNauticalLicense" />
+                                    <label class="form-check-label">Presente</label>
+                                </div>
+                                @if (customer.HasNauticalLicense)
+                                {
+                                    <div class="mt-2">
+                                        <div class="btn-group w-100" role="group">
+                                            <label class="btn btn-outline-primary">
+                                                <span class="oi oi-cloud-upload"></span> Carica File
+                                                <InputFile class="d-none" OnChange="HandleLicenseUpload" 
+                                                           accept=".pdf,.jpg,.jpeg,.png" />
+                                            </label>
+                                            <button type="button" class="btn btn-outline-primary" @onclick="OpenCameraForLicense">
+                                                <span class="oi oi-camera"></span> Da Camera
+                                            </button>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(customer.LicenseFileUrl))
+                                        {
+                                            <div class="mt-2">
+                                                @if (customer.LicenseFileUrl.StartsWith("data:image"))
+                                                {
+                                                    <img src="@customer.LicenseFileUrl" alt="Patente" class="img-thumbnail" style="max-width: 200px; max-height: 200px;" />
+                                                }
+                                                else
+                                                {
+                                                    <a href="@customer.LicenseFileUrl" target="_blank" class="btn btn-sm btn-link">
+                                                        <span class="oi oi-eye"></span> Visualizza Patente
+                                                    </a>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-danger">— Mancante</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ultima Prenotazione -->
+                @if (lastBooking != null)
+                {
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Ultima Prenotazione</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <strong>Data:</strong><br />
+                                    <span>@GetLastBookingDate()</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Tipo:</strong><br />
+                                    <span>@lastBooking.Type</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Servizio:</strong><br />
+                                    <span>@lastBooking.Boat.Name</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Prezzo:</strong><br />
+                                    <span>€@lastBooking.ActualPrice.ToString("F2")</span>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <strong>Stato:</strong> 
+                                <span class="badge bg-@GetStatusBadgeColor(lastBooking.Status)">
+                                    @lastBooking.Status
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Prenotazioni in Corso -->
+                @if (activeBookings.Any())
+                {
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Prenotazioni in Corso</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group">
+                                @foreach (var booking in activeBookings)
+                                {
+                                    var bookingDates = booking.BookingDates.OrderBy(bd => bd.Date).ToList();
+                                    var dateRange = bookingDates.Count == 1 
+                                        ? bookingDates.First().Date.ToString("dd/MM/yyyy")
+                                        : $"{bookingDates.First().Date:dd/MM/yyyy} - {bookingDates.Last().Date:dd/MM/yyyy}";
+                                    var serviceName = booking.Type == BookingType.Gommone 
+                                        ? $"{booking.Boat.Name} ({booking.Boat.Horsepower} CV)"
+                                        : booking.Boat.Name;
+                                    var participants = booking.Type == BookingType.Escursione
+                                        ? $"{booking.Adults + (booking.Children ?? 0)} partecipanti"
+                                        : $"{GetBookingDuration(booking)}";
+                                    
+                                    <div class="list-group-item" style="cursor: pointer;" 
+                                         @onclick="() => NavigateToBooking(booking)">
+                                        <div class="d-flex w-100 justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">@dateRange</h6>
+                                                <p class="mb-1">
+                                                    <strong>@booking.Type</strong>: @serviceName
+                                                    @if (booking.SkipperId.HasValue && booking.Skipper != null)
+                                                    {
+                                                        <span class="badge bg-info ms-2">⚓ Skipper: @booking.Skipper.FullName</span>
+                                                    }
+                                                </p>
+                                                <small class="text-muted">@participants</small>
+                                            </div>
+                                            <div>
+                                                <span class="badge bg-@GetStatusBadgeColor(booking.Status)">
+                                                    @booking.Status
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Pulsanti -->
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" @onclick="SaveCustomer">
+                        <span class="oi oi-check"></span> Salva Cliente
+                    </button>
+                    <button class="btn btn-secondary" @onclick="Cancel">
+                        <span class="oi oi-x"></span> Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private Customer customer = new();
+    private List<Customer> allCustomers = new();
+    private Booking? lastBooking = null;
+    private List<Booking> activeBookings = new();
+    private bool isNewCustomer = false;
+
+    [Parameter] public string? customerId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        allCustomers = await CustomerService.GetAllCustomersAsync();
+        
+        // Check for customerId from query or route
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        
+        string? idToLoad = null;
+        if (queryParams.ContainsKey("customerId"))
+        {
+            idToLoad = queryParams["customerId"];
+        }
+        else if (!string.IsNullOrEmpty(customerId))
+        {
+            idToLoad = customerId;
+        }
+
+        if (!string.IsNullOrEmpty(idToLoad) && int.TryParse(idToLoad, out int id))
+        {
+            await LoadCustomerById(id);
+        }
+    }
+
+    private async Task LoadCustomerById(int id)
+    {
+        var loadedCustomer = await CustomerService.GetCustomerByIdAsync(id);
+        if (loadedCustomer != null)
+        {
+            customer = loadedCustomer;
+            isNewCustomer = false;
+            lastBooking = await CustomerService.GetLastBookingAsync(id);
+            await LoadActiveBookings(id);
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadCustomer(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int customerId) && customerId > 0)
+        {
+            var loadedCustomer = await CustomerService.GetCustomerByIdAsync(customerId);
+            if (loadedCustomer != null)
+            {
+                customer = loadedCustomer;
+                isNewCustomer = false;
+                lastBooking = await CustomerService.GetLastBookingAsync(customerId);
+                await LoadActiveBookings(customerId);
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task LoadActiveBookings(int customerId)
+    {
+        var allBookings = await BookingService.GetAllBookingsAsync();
+        var today = DateTime.Today;
+        activeBookings = allBookings
+            .Where(b => b.CustomerId == customerId && 
+                   b.Status != BookingStatus.Annullata &&
+                   b.BookingDates.Any(bd => bd.Date >= today))
+            .OrderBy(b => b.BookingDates.Min(bd => bd.Date))
+            .ToList();
+    }
+
+    private string GetBookingDuration(Booking booking)
+    {
+        if (booking.BookingDates == null || !booking.BookingDates.Any())
+            return "Durata non specificata";
+        
+        var firstDate = booking.BookingDates.OrderBy(bd => bd.Date).First();
+        if (firstDate.StartTime.HasValue && firstDate.EndTime.HasValue)
+        {
+            var duration = firstDate.EndTime.Value - firstDate.StartTime.Value;
+            return $"{duration.Hours}h {duration.Minutes}m";
+        }
+        
+        return "Durata non specificata";
+    }
+
+    private void NavigateToBooking(Booking booking)
+    {
+        if (booking.BookingDates != null && booking.BookingDates.Any())
+        {
+            var firstDate = booking.BookingDates.OrderBy(bd => bd.Date).First().Date;
+            Navigation.NavigateTo($"/calendar?date={firstDate:yyyy-MM-dd}&view=Giornaliera&bookingId={booking.Id}");
+        }
+    }
+
+    private void ShowNewCustomerForm()
+    {
+        customer = new Customer();
+        isNewCustomer = true;
+        lastBooking = null;
+        StateHasChanged();
+    }
+
+    private async Task SaveCustomer()
+    {
+        if (string.IsNullOrWhiteSpace(customer.Phone))
+        {
+            // Mostra errore
+            return;
+        }
+
+        if (customer.Id > 0)
+        {
+            await CustomerService.UpdateCustomerAsync(customer);
+        }
+        else
+        {
+            await CustomerService.CreateCustomerAsync(customer);
+        }
+
+        allCustomers = await CustomerService.GetAllCustomersAsync();
+        isNewCustomer = false;
+        StateHasChanged();
+    }
+
+    private void Cancel()
+    {
+        customer = new Customer();
+        isNewCustomer = false;
+        lastBooking = null;
+        StateHasChanged();
+    }
+
+    private async Task HandleDocumentUpload(InputFileChangeEventArgs e)
+    {
+        // TODO: Implementare upload file
+        // Per ora solo mockup
+        customer.DocumentFileUrl = "/uploads/documents/" + e.File.Name;
+        StateHasChanged();
+    }
+
+    private async Task HandleLicenseUpload(InputFileChangeEventArgs e)
+    {
+        // TODO: Implementare upload file
+        // Per ora solo mockup
+        customer.LicenseFileUrl = "/uploads/licenses/" + e.File.Name;
+        StateHasChanged();
+    }
+
+    private string GetLastBookingDate()
+    {
+        if (lastBooking == null || lastBooking.BookingDates == null || !lastBooking.BookingDates.Any())
+            return "N/A";
+        
+        var dates = lastBooking.BookingDates.OrderBy(bd => bd.Date).Select(bd => bd.Date.ToString("dd/MM/yyyy")).ToList();
+        if (dates.Count == 1)
+            return dates.First();
+        else if (dates.Count > 1)
+            return string.Join(", ", dates);
+        
+        return "N/A";
+    }
+
+    private async Task OpenCameraForDocument()
+    {
+        try
+        {
+            var imageData = await JSRuntime.InvokeAsync<string>("captureFromCamera");
+            if (!string.IsNullOrEmpty(imageData))
+            {
+                // Salva come base64 temporaneamente (in produzione salvare su server)
+                customer.DocumentFileUrl = imageData; // Base64 data URL
+                await JSRuntime.InvokeVoidAsync("console.log", "Documento catturato dalla camera");
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Errore: {ex.Message}. Usa 'Carica File' per selezionare un'immagine.");
+        }
+    }
+
+    private async Task OpenCameraForLicense()
+    {
+        try
+        {
+            var imageData = await JSRuntime.InvokeAsync<string>("captureFromCamera");
+            if (!string.IsNullOrEmpty(imageData))
+            {
+                // Salva come base64 temporaneamente (in produzione salvare su server)
+                customer.LicenseFileUrl = imageData; // Base64 data URL
+                await JSRuntime.InvokeVoidAsync("console.log", "Patente catturata dalla camera");
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Errore: {ex.Message}. Usa 'Carica File' per selezionare un'immagine.");
+        }
+    }
+
+    private string GetStatusBadgeColor(BookingStatus status)
+    {
+        return status switch
+        {
+            BookingStatus.Opzionata => "secondary",
+            BookingStatus.Confermata => "primary",
+            BookingStatus.Pagata => "success",
+            BookingStatus.Ritirato => "warning",
+            BookingStatus.Rientrato => "info",
+            BookingStatus.Completata => "success",
+            BookingStatus.Annullata => "danger",
+            BookingStatus.InAttesa => "warning",
+            _ => "secondary"
+        };
+    }
+}

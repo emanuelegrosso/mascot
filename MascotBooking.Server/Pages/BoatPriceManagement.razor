@@ -1,0 +1,212 @@
+@page "/prices"
+@using Microsoft.EntityFrameworkCore
+@inject IBoatPriceService BoatPriceService
+@inject AppDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Gestione Prezzi</PageTitle>
+
+<div class="container-fluid">
+    <h2 class="mb-4">Gestione Prezzi Stagionali</h2>
+
+    <!-- Selezione Barca -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Seleziona Barca</label>
+                    <select class="form-select" @onchange="OnBoatSelected">
+                        <option value="0">Seleziona barca...</option>
+                        @foreach (var boat in allBoats)
+                        {
+                            <option value="@boat.Id">@boat.Name (@boat.Horsepower CV)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Tipo Prezzo</label>
+                    <select class="form-select" @onchange="OnPriceTypeChanged">
+                        <option value="false">Prezzo Giornaliero Fisso (Gommoni)</option>
+                        <option value="true">Prezzo per Persona (Escursioni)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (selectedBoatId > 0)
+    {
+        var selectedBoat = allBoats.FirstOrDefault(b => b.Id == selectedBoatId);
+        
+        <div class="card">
+            <div class="card-header">
+                <h5>Prezzi per @selectedBoat?.Name</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Mese</th>
+                                <th>Prezzo (€)</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int month = 1; month <= 12; month++)
+                            {
+                                var monthName = GetMonthName(month);
+                                var price = priceMatrix.ContainsKey(month) ? priceMatrix[month] : 0m;
+                                
+                                <tr>
+                                    <td><strong>@monthName</strong></td>
+                                    <td>
+                                        <input type="number" 
+                                               class="form-control" 
+                                               step="0.01" 
+                                               value="@price"
+                                               @onchange="@((ChangeEventArgs e) => UpdatePrice(month, e))" />
+                                    </td>
+                                    <td>
+                                        @if (price > 0)
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeletePrice(month)">
+                                                <span class="oi oi-trash"></span>
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-3">
+                    <button class="btn btn-primary" @onclick="SaveAllPrices">
+                        <span class="oi oi-check"></span> Salva Tutti i Prezzi
+                    </button>
+                    <button class="btn btn-secondary" @onclick="LoadPrices">
+                        <span class="oi oi-reload"></span> Ricarica
+                    </button>
+                </div>
+
+                <!-- Importazione Rapida da Listino -->
+                <div class="mt-4">
+                    <div class="card bg-light">
+                        <div class="card-header">
+                            <h6>Importazione Rapida (Maggio-Novembre)</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                @for (int month = 5; month <= 11; month++)
+                                {
+                                    var monthName = GetMonthName(month);
+                                    var price = priceMatrix.ContainsKey(month) ? priceMatrix[month] : 0m;
+                                    
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label small">@monthName</label>
+                                        <input type="number" 
+                                               class="form-control form-control-sm" 
+                                               step="0.01" 
+                                               value="@price"
+                                               @onchange="@((ChangeEventArgs e) => UpdatePrice(month, e))" />
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            Seleziona una barca per visualizzare e modificare i prezzi stagionali.
+        </div>
+    }
+</div>
+
+@code {
+    private List<Boat> allBoats = new();
+    private int selectedBoatId = 0;
+    private bool isPerPerson = false;
+    private Dictionary<int, decimal> priceMatrix = new();
+    private Dictionary<int, decimal> pendingChanges = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBoats();
+    }
+
+    private async Task LoadBoats()
+    {
+        allBoats = await DbContext.Boats.Where(b => b.IsActive).OrderBy(b => b.Horsepower).ToListAsync();
+    }
+
+    private async Task OnBoatSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int boatId))
+        {
+            selectedBoatId = boatId;
+            await LoadPrices();
+        }
+    }
+
+    private async Task OnPriceTypeChanged(ChangeEventArgs e)
+    {
+        if (bool.TryParse(e.Value?.ToString(), out bool isPerPersonValue))
+        {
+            isPerPerson = isPerPersonValue;
+            await LoadPrices();
+        }
+    }
+
+    private async Task LoadPrices()
+    {
+        if (selectedBoatId > 0)
+        {
+            priceMatrix = await BoatPriceService.GetPriceMatrixForBoatAsync(selectedBoatId, isPerPerson);
+            pendingChanges.Clear();
+            StateHasChanged();
+        }
+    }
+
+    private void UpdatePrice(int month, ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out decimal price))
+        {
+            priceMatrix[month] = price;
+            pendingChanges[month] = price;
+        }
+    }
+
+    private async Task SaveAllPrices()
+    {
+        if (selectedBoatId > 0)
+        {
+            await BoatPriceService.BulkUpdatePricesAsync(selectedBoatId, priceMatrix, isPerPerson);
+            pendingChanges.Clear();
+            await LoadPrices();
+        }
+    }
+
+    private async Task DeletePrice(int month)
+    {
+        if (selectedBoatId > 0)
+        {
+            var price = await BoatPriceService.GetPriceForMonthAsync(selectedBoatId, month);
+            if (price != null && price.IsPerPerson == isPerPerson)
+            {
+                await BoatPriceService.DeletePriceAsync(price.Id);
+                priceMatrix[month] = 0;
+                await LoadPrices();
+            }
+        }
+    }
+
+    private string GetMonthName(int month)
+    {
+        return new DateTime(2024, month, 1).ToString("MMMM", new System.Globalization.CultureInfo("it-IT"));
+    }
+}

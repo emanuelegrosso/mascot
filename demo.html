@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Noleggio Nautico - MareBlu</title>
+  <style>
+    :root {
+      --primary: #003366;
+      --secondary: #0077b6;
+      --light: #f8f9fa;
+      --danger: #dc3545;
+      --warning: #ffc107;
+      --success: #198754;
+      --info: #0dcaf0;
+      --gray: #6c757d;
+      --light-gray: #e9ecef;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f0f4f8; color: #333; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); overflow: hidden; }
+    header { background: var(--primary); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+    h1, h2, h3 { margin: 20px 0; padding: 0 20px; }
+    .section { padding: 0 20px 20px; border-bottom: 1px solid #eee; }
+    .form-group { margin: 15px 0; }
+    label { display: block; margin-bottom: 5px; font-weight: 600; color: var(--primary); }
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+    .row { display: flex; gap: 15px; }
+    .col { flex: 1; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .btn-primary { background: var(--secondary); color: white; }
+    .btn-outline { background: transparent; border: 1px solid var(--gray); color: var(--gray); }
+    .btn-success { background: var(--success); color: white; }
+    .status-badge {
+      display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 8px;
+    }
+    .status-confirmed { background: #e0f0ff; color: var(--secondary); }
+    .status-option { background: #fff3cd; color: #856404; }
+    .status-taken { background: #ffe0e0; color: var(--danger); }
+    .status-returned { background: #d4edda; color: var(--success); }
+    .calendar-day { background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-top: 10px; }
+    .booking-item {
+      background: #f0f8ff; border-left: 4px solid var(--secondary); padding: 10px; margin: 8px 0; border-radius: 4px;
+      font-size: 14px;
+    }
+    .doc-section {
+      border: 1px solid var(--light-gray);
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px 0;
+      background: #fcfcfc;
+    }
+    .doc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .doc-status.present { color: var(--success); font-weight: bold; }
+    .doc-status.missing { color: var(--gray); }
+    .doc-preview {
+      display: inline-block;
+      width: 80px;
+      height: 80px;
+      background: #eee;
+      border: 1px solid #aaa;
+      line-height: 80px;
+      text-align: center;
+      font-size: 10px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+    .people-counter { display: flex; gap: 10px; align-items: center; }
+    .counter-input { width: 60px; text-align: center; }
+    .price-line { display: flex; justify-content: space-between; margin: 8px 0; }
+    .highlight { font-weight: bold; color: var(--primary); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h2 style="color:white; margin:0;">⛵ Noleggio MareBlu</h2>
+    <div>👤 Staff • [Logout]</div>
+  </header>
+
+  <!-- FORM PRENOTAZIONE -->
+  <h1>+ Nuova Prenotazione</h1>
+  <div class="section">
+    <div class="form-group">
+      <label>Cerca cliente</label>
+      <input type="text" placeholder="Nome, telefono, email, CV barca, data..." />
+      <button class="btn btn-outline" style="margin-top:8px;">+ Nuovo cliente</button>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <label>Inizio</label>
+        <input type="date" value="2026-04-12" /> 
+        <input type="time" value="10:00" style="margin-top:5px;" />
+      </div>
+      <div class="col">
+        <label>Fine</label>
+        <input type="date" value="2026-04-12" />
+        <input type="time" value="14:00" style="margin-top:5;"/>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Natante disponibile</label>
+      <select>
+        <option>Gommone L02 – 150 CV – 6 posti</option>
+        <option>Yacht Aurora – 300 CV – 8 posti</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Composizione gruppo</label>
+      <div class="people-counter">
+        Adulti: <input type="number" class="counter-input" min="0" value="4" /> 
+        Bambini: <input type="number" class="counter-input" min="0" value="2" />
+        <span class="highlight">Totale: 6 / 6 ✅</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Prezzo</label>
+      <div class="price-line">
+        <span>Prezzo pubblico (alta stagione):</span>
+        <span>€120,00</span>
+      </div>
+      <div class="price-line">
+        <span>Prezzo reale applicato:</span>
+        <input type="text" value="€120,00" style="width:120px; text-align:right;" />
+      </div>
+      <small>Modifica per sconti o pacchetti</small>
+    </div>
+
+    <div class="form-group">
+      <label>Stato prenotazione</label><br/>
+      <label style="display:inline-block; margin-right:20px;">
+        <input type="radio" name="status" /> Opzione (non bloccante)
+      </label>
+      <label style="display:inline-block;">
+        <input type="radio" name="status" checked /> Confermata (blocca natante)
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label>Note</label>
+      <textarea rows="2" placeholder="Es. Porta il cane, skipper incluso..."></textarea>
+    </div>
+
+    <div style="text-align:right; margin-top:20px;">
+      <button class="btn btn-outline">Annulla</button>
+      <button class="btn btn-primary" style="margin-left:10px;">Conferma Prenotazione</button>
+    </div>
+  </div>
+
+  <!-- SCHERMATA CLIENTI (aggiornata) -->
+  <h1>Scheda Cliente – Mario Rossi</h1>
+  <div class="section">
+    <div class="row">
+      <div class="col"><input type="text" placeholder="Nome" value="Mario" /></div>
+      <div class="col"><input type="text" placeholder="Cognome" value="Rossi" /></div>
+    </div>
+    <div class="form-group">
+      <input type="tel" placeholder="Telefono" value="3331234567" />
+    </div>
+    <div class="form-group">
+      <input type="email" placeholder="Email" value="mario@email.it" />
+    </div>
+    <div class="form-group">
+      <input type="text" placeholder="Codice Fiscale" value="RSSMRA80C15H501X" />
+    </div>
+
+    <h3 style="font-size:16px; margin:15px 0 10px;">Documenti (opzionali)</h3>
+    
+    <!-- Documento d'identità -->
+    <div class="doc-section">
+      <div class="doc-header">
+        <strong>📄 Documento d'identità</strong>
+        <span class="doc-status present">✓ Presente</span>
+      </div>
+      <div class="doc-preview">ID.jpg</div>
+      <button class="btn btn-outline" style="margin-top:8px; font-size:12px;">Sostituisci</button>
+    </div>
+
+    <!-- Patente nautica -->
+    <div class="doc-section">
+      <div class="doc-header">
+        <strong>🛥️ Patente nautica</strong>
+        <span class="doc-status missing">— Mancante</span>
+      </div>
+      <button class="btn btn-outline" style="margin-top:8px; font-size:12px;">Carica patente</button>
+    </div>
+  </div>
+
+  <!-- CALENDARIO CON STATI -->
+  <h1>Calendario – Lunedì 12 Aprile 2026</h1>
+  <div class="section">
+    <div class="calendar-day">
+      <strong>Gommone L02</strong>
+      <div class="booking-item">
+        <div>Mario Rossi (10:00–14:00)</div>
+        <div>
+          <span class="status-badge status-confirmed">Confermata</span>
+          <span class="status-badge status-taken">Ritirato</span>
+        </div>
+        <button class="btn btn-outline" style="margin-top:8px; font-size:12px;">Segna come RIENUTATO</button>
+      </div>
+
+      <div class="booking-item">
+        <div>Luca Bianchi (15:00–17:00)</div>
+        <div>
+          <span class="status-badge status-option">Opzione</span>
+          <span class="status-badge" style="background:#eee; color:#666;">Non ritirato</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="calendar-day" style="margin-top:15px;">
+      <strong>Yacht Aurora</strong>
+      <div class="booking-item">
+        <div>Anna Verdi (09:00–12:00)</div>
+        <div>
+          <span class="status-badge status-confirmed">Confermata</span>
+          <span class="status-badge status-returned">Rientrato</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

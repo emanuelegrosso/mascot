@@ -1,0 +1,411 @@
+@page "/booking"
+@inject IBookingService BookingService
+@inject ICustomerService CustomerService
+@inject IPriceCalculatorService PriceCalculator
+@inject ISkipperService SkipperService
+@inject AppDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Nuova Prenotazione</PageTitle>
+
+<div class="container-fluid">
+    <h2 class="mb-4">Nuova Prenotazione</h2>
+
+    <div class="card">
+        <div class="card-body">
+            <!-- Selezione Tipo Servizio -->
+            <div class="mb-4">
+                <label class="form-label fw-bold">Tipo Servizio *</label>
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="bookingType" id="typeGommone" 
+                           checked="@(selectedType == BookingType.Gommone)" 
+                           @onchange="() => SelectType(BookingType.Gommone)" />
+                    <label class="btn btn-outline-primary" for="typeGommone">Noleggio Gommone</label>
+
+                    <input type="radio" class="btn-check" name="bookingType" id="typeEscursione" 
+                           checked="@(selectedType == BookingType.Escursione)" 
+                           @onchange="() => SelectType(BookingType.Escursione)" />
+                    <label class="btn btn-outline-primary" for="typeEscursione">Escursione</label>
+                </div>
+            </div>
+
+            @if (selectedType.HasValue)
+            {
+                <!-- Selezione Date Multiple -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Date *</label>
+                    <div class="input-group mb-2">
+                        <input type="date" class="form-control" @bind="selectedDate" 
+                               min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                        <button class="btn btn-primary" type="button" @onclick="AddDate">
+                            <span class="oi oi-plus"></span> Aggiungi Data
+                        </button>
+                    </div>
+                    @if (selectedDates.Any())
+                    {
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var date in selectedDates.OrderBy(d => d))
+                            {
+                                <span class="badge bg-primary p-2">
+                                    @date.ToString("dd/MM/yyyy")
+                                    <button type="button" class="btn-close btn-close-white ms-2" 
+                                            @onclick="() => RemoveDate(date)" aria-label="Remove"></button>
+                                </span>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Partecipanti -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Adulti *</label>
+                        <input type="number" class="form-control" @bind="adults" @bind:event="oninput" 
+                               min="0" @onchange="RecalculatePrice" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Bambini</label>
+                        <input type="number" class="form-control" @bind="children" @bind:event="oninput" 
+                               min="0" @onchange="RecalculatePrice" />
+                    </div>
+                </div>
+
+                <!-- Selezione Natante/Barca -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Natante/Barca *</label>
+                    <select class="form-select" value="@selectedBoatId" @onchange="OnBoatChanged">
+                        <option value="0">Seleziona...</option>
+                        @foreach (var boat in availableBoats)
+                        {
+                            <option value="@boat.Id">@boat.Name (@boat.Horsepower CV, @boat.Capacity posti)</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Prezzo Standard -->
+                <div class="mb-3">
+                    <div class="alert alert-info">
+                        <strong>Prezzo Standard:</strong> €@standardPrice.ToString("F2")
+                    </div>
+                </div>
+
+                <!-- Prezzo Reale -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Prezzo Reale *</label>
+                    <input type="number" class="form-control" value="@actualPrice" 
+                           step="0.01" @onchange="OnPriceChanged" />
+                </div>
+
+                <!-- Validazione Patente -->
+                @if (requiresLicense)
+                {
+                    <div class="alert alert-warning">
+                        <strong>Attenzione:</strong> Questo natante richiede patente nautica (≥100 CV)
+                    </div>
+                }
+
+                <!-- Dati Cliente -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>Dati Cliente</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Cerca Cliente Esistente</label>
+                            <select class="form-select" @onchange="LoadCustomer">
+                                <option value="0">Nuovo cliente...</option>
+                                @foreach (var customer in allCustomers)
+                                {
+                                    <option value="@customer.Id">@customer.FullName (@customer.Phone)</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Telefono *</label>
+                                <input type="tel" class="form-control" @bind="customer.Phone" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" @bind="customer.Email" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Documento d'Identità *</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" @bind="customer.HasDocument" />
+                                    <label class="form-check-label">Presente</label>
+                                </div>
+                                @if (customer.HasDocument)
+                                {
+                                    <input type="text" class="form-control mt-2" @bind="customer.DocumentNumber" 
+                                           placeholder="Numero documento" />
+                                    <select class="form-select mt-2" @bind="customer.DocumentType">
+                                        <option value="@((int?)null)">Seleziona tipo...</option>
+                                        <option value="@((int)DocumentType.CartaIdentita)">Carta d'Identità</option>
+                                        <option value="@((int)DocumentType.Passaporto)">Passaporto</option>
+                                        <option value="@((int)DocumentType.PatenteGuida)">Patente di Guida</option>
+                                    </select>
+                                }
+                            </div>
+                            <div class="col-md-6">
+                                @if (requiresLicense)
+                                {
+                                    <label class="form-label fw-bold">Patente Nautica *</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" @bind="customer.HasNauticalLicense" />
+                                        <label class="form-check-label">Presente</label>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Note</label>
+                            <textarea class="form-control" rows="3" @bind="notes"></textarea>
+                        </div>
+
+                        <!-- Selezione Skipper -->
+                        @if (selectedType == BookingType.Gommone && selectedBoatId > 0)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Noleggio con Skipper</label>
+                                <select class="form-select" value="@selectedSkipperId" @onchange="OnSkipperChanged">
+                                    <option value="0">Nessuno (noleggio senza skipper)</option>
+                                    @foreach (var skipper in availableSkippers)
+                                    {
+                                        <option value="@skipper.Id">@skipper.FullName 
+                                            @if (skipper.PatenteInScadenza)
+                                            {
+                                                <text>⚠️ (Patente in scadenza: @skipper.DataScadenzaPatente.ToString("dd/MM/yyyy"))</text>
+                                            }
+                                        </option>
+                                    }
+                                </select>
+                                @if (selectedSkipperId > 0)
+                                {
+                                    <small class="text-muted">Il costo giornaliero dello skipper verrà aggiunto al prezzo</small>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Pulsanti -->
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" @onclick="SaveBooking" disabled="@(!IsFormValid())">
+                        <span class="oi oi-check"></span> Salva Prenotazione
+                    </button>
+                    <button class="btn btn-secondary" @onclick="Cancel">
+                        <span class="oi oi-x"></span> Annulla
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private BookingType? selectedType;
+    private List<DateTime> selectedDates = new();
+    private DateTime selectedDate = DateTime.Today;
+    private int selectedBoatId = 0;
+    private int adults = 1;
+    private int? children = null;
+    private decimal standardPrice = 0;
+    private decimal actualPrice = 0;
+    private bool priceManuallyChanged = false;
+    private bool requiresLicense = false;
+    private Customer customer = new();
+    private string? notes;
+    private int selectedSkipperId = 0;
+    private List<Boat> availableBoats = new();
+    private List<Customer> allCustomers = new();
+    private List<Skipper> availableSkippers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBoats();
+        await LoadCustomers();
+        await LoadSkippers();
+    }
+
+    private async Task LoadSkippers()
+    {
+        availableSkippers = await SkipperService.GetActiveSkippersAsync();
+    }
+
+    private async Task LoadBoats()
+    {
+        availableBoats = await DbContext.Boats
+            .Where(b => b.IsActive && 
+                   (selectedType == BookingType.Gommone ? b.Type == BoatType.Gommone : b.Type == BoatType.Yacht))
+            .ToListAsync();
+    }
+
+    private async Task LoadCustomers()
+    {
+        allCustomers = await CustomerService.GetAllCustomersAsync();
+    }
+
+    private async Task SelectType(BookingType type)
+    {
+        selectedType = type;
+        selectedBoatId = 0;
+        await LoadBoats();
+        await RecalculatePrice();
+    }
+
+    private async Task AddDate()
+    {
+        if (selectedDate >= DateTime.Today && !selectedDates.Contains(selectedDate))
+        {
+            selectedDates.Add(selectedDate);
+            StateHasChanged();
+            await RecalculatePrice();
+        }
+    }
+
+    private async Task RemoveDate(DateTime date)
+    {
+        selectedDates.Remove(date);
+        await RecalculatePrice();
+    }
+
+    private async Task OnBoatChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int boatId))
+        {
+            selectedBoatId = boatId;
+            selectedSkipperId = 0; // Reset skipper quando cambia barca
+            if (selectedBoatId > 0 && selectedType.HasValue)
+            {
+                requiresLicense = await BookingService.RequiresNauticalLicenseAsync(selectedType.Value, selectedBoatId, null);
+                await RecalculatePrice();
+            }
+        }
+    }
+
+    private async Task OnSkipperChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int skipperId))
+        {
+            selectedSkipperId = skipperId;
+            if (selectedBoatId > 0 && selectedType.HasValue)
+            {
+                // Ricalcola se serve patente cliente (con/senza skipper)
+                requiresLicense = await BookingService.RequiresNauticalLicenseAsync(
+                    selectedType.Value, 
+                    selectedBoatId, 
+                    selectedSkipperId > 0 ? selectedSkipperId : null);
+            }
+            await RecalculatePrice();
+        }
+    }
+
+    private void OnPriceChanged(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out decimal price))
+        {
+            actualPrice = price;
+            OnPriceManuallyChanged();
+        }
+    }
+
+    private async Task RecalculatePrice()
+    {
+        if (selectedType.HasValue && selectedBoatId > 0 && selectedDates.Any() && (adults + (children ?? 0)) >= 1)
+        {
+            if (!priceManuallyChanged)
+            {
+                standardPrice = await PriceCalculator.CalculateStandardPriceAsync(
+                    selectedType.Value,
+                    selectedBoatId,
+                    selectedDates,
+                    adults,
+                    children,
+                    selectedSkipperId > 0 ? selectedSkipperId : null);
+                actualPrice = standardPrice;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void OnPriceManuallyChanged()
+    {
+        priceManuallyChanged = true;
+    }
+
+    private async Task LoadCustomer(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int customerId) && customerId > 0)
+        {
+            var loadedCustomer = await CustomerService.GetCustomerByIdAsync(customerId);
+            if (loadedCustomer != null)
+            {
+                customer = loadedCustomer;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private bool IsFormValid()
+    {
+        return selectedType.HasValue &&
+               selectedDates.Any() &&
+               (adults + (children ?? 0)) >= 1 &&
+               selectedBoatId > 0 &&
+               !string.IsNullOrWhiteSpace(customer.Phone) &&
+               customer.HasDocument &&
+               (!requiresLicense || customer.HasNauticalLicense) &&
+               actualPrice > 0;
+    }
+
+    private async Task SaveBooking()
+    {
+        if (!IsFormValid()) return;
+
+        // Crea o aggiorna cliente
+        Customer savedCustomer;
+        if (customer.Id > 0)
+        {
+            savedCustomer = await CustomerService.UpdateCustomerAsync(customer);
+        }
+        else
+        {
+            savedCustomer = await CustomerService.CreateCustomerAsync(customer);
+        }
+
+        // Crea prenotazione
+        var booking = new Booking
+        {
+            Type = selectedType!.Value,
+            CustomerId = savedCustomer.Id,
+            BoatId = selectedBoatId,
+            Adults = adults,
+            Children = children,
+            StandardPrice = standardPrice,
+            ActualPrice = actualPrice,
+            Status = BookingStatus.Confermata,
+            Notes = notes,
+            SkipperId = selectedSkipperId > 0 ? selectedSkipperId : null,
+            BookingDates = selectedDates.Select(d => new BookingDate
+            {
+                Date = d,
+                StartTime = new TimeSpan(9, 0, 0),
+                EndTime = new TimeSpan(17, 0, 0)
+            }).ToList()
+        };
+
+        await BookingService.CreateBookingAsync(booking);
+        Navigation.NavigateTo("/");
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

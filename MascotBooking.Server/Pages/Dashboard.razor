@@ -1,0 +1,322 @@
+@page "/"
+@inject IBookingService BookingService
+@inject ICustomerService CustomerService
+@inject IGlobalSearchService GlobalSearchService
+
+<PageTitle>Dashboard</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Dashboard</h2>
+    </div>
+
+    <!-- Ricerca Globale -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="global-search-container">
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text bg-primary text-white">
+                        <span class="oi oi-magnifying-glass"></span>
+                    </span>
+                    <input type="text" 
+                           class="form-control" 
+                           placeholder="Cerca clienti, prenotazioni, barche..." 
+                           value="@searchTerm"
+                           @oninput="OnSearchInput"
+                           @onkeydown="HandleKeyDown"
+                           @onfocus="OnFocus"
+                           @onblur="OnBlur" />
+                    @if (!string.IsNullOrWhiteSpace(searchTerm))
+                    {
+                        <button class="btn btn-outline-secondary" type="button" @onclick="ClearSearch">
+                            <span class="oi oi-x"></span>
+                        </button>
+                    }
+                </div>
+
+                @if (showResults && searchResults.Any())
+                {
+                    <div class="search-results-dropdown">
+                        @foreach (var result in searchResults)
+                        {
+                            <div class="search-result-item @(selectedIndex == searchResults.IndexOf(result) ? "selected" : "")" 
+                                 @onclick="() => NavigateToResult(result)"
+                                 @onmouseover="() => selectedIndex = searchResults.IndexOf(result)">
+                                <div class="d-flex align-items-center">
+                                    <div class="search-result-icon">
+                                        <span class="oi @result.Icon"></span>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <div class="search-result-title">@result.Title</div>
+                                        <div class="search-result-subtitle">@result.Subtitle</div>
+                                    </div>
+                                    <div class="search-result-badge">
+                                        <span class="badge bg-@GetBadgeColor(result.Type)">@GetTypeLabel(result.Type)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (showResults && !string.IsNullOrWhiteSpace(searchTerm) && searchTerm.Length >= 2)
+                {
+                    <div class="search-results-dropdown">
+                        <div class="search-result-item text-muted text-center p-3">
+                            <span class="oi oi-info"></span> Nessun risultato trovato
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card dashboard-card" style="cursor: pointer;" @onclick="NavigateToTodayBookings">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title text-muted mb-2">Prenotazioni Oggi</h5>
+                            <h2 class="text-primary mb-0">@todayBookingsCount</h2>
+                        </div>
+                        <div class="dashboard-icon">
+                            <span class="oi oi-calendar" style="font-size: 3rem; color: #0d6efd;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card dashboard-card" style="cursor: pointer;" @onclick="NavigateToBoatsOut">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title text-muted mb-2">Natanti in Giro</h5>
+                            <h2 class="text-warning mb-0">@boatsOutCount</h2>
+                        </div>
+                        <div class="dashboard-icon">
+                            <span class="oi oi-boat" style="font-size: 3rem; color: #ffc107;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title text-muted mb-2">Fatturato Stimato</h5>
+                            <h2 class="text-success mb-0">€@estimatedRevenue.ToString("F2")</h2>
+                        </div>
+                        <div class="dashboard-icon">
+                            <span class="oi oi-euro" style="font-size: 3rem; color: #198754;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Prossimi Rientri</h5>
+        </div>
+        <div class="card-body">
+            @if (upcomingReturns.Any())
+            {
+                <div class="list-group">
+                    @foreach (var booking in upcomingReturns)
+                    {
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">@booking.Customer.FullName - @booking.Boat.Name</h6>
+                                <small>@GetReturnTime(booking)</small>
+                            </div>
+                            <p class="mb-1">@booking.Type - @booking.Boat.Name</p>
+                            <small>Stato: <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span></small>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">Nessun rientro previsto oggi</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] NavigationManager Navigation { get; set; } = null!;
+    
+    private int todayBookingsCount = 0;
+    private int boatsOutCount = 0;
+    private decimal estimatedRevenue = 0;
+    private List<Booking> upcomingReturns = new();
+    
+    // Search
+    private string searchTerm = string.Empty;
+    private List<SearchResult> searchResults = new();
+    private bool showResults = false;
+    private int selectedIndex = -1;
+    private System.Threading.Timer? searchTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task OnFocus()
+    {
+        if (searchResults.Any())
+            showResults = true;
+    }
+
+    private async Task OnBlur()
+    {
+        // Delay per permettere il click
+        await Task.Delay(200);
+        showResults = false;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && selectedIndex >= 0 && selectedIndex < searchResults.Count)
+        {
+            NavigateToResult(searchResults[selectedIndex]);
+        }
+        else if (e.Key == "Escape")
+        {
+            showResults = false;
+            searchTerm = string.Empty;
+            selectedIndex = -1;
+        }
+        else if (e.Key == "ArrowDown" && searchResults.Any())
+        {
+            selectedIndex = Math.Min(selectedIndex + 1, searchResults.Count - 1);
+        }
+        else if (e.Key == "ArrowUp" && searchResults.Any())
+        {
+            selectedIndex = Math.Max(selectedIndex - 1, 0);
+        }
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        OnSearchTermChanged();
+    }
+
+    private void OnSearchTermChanged()
+    {
+        if (searchTerm.Length < 2)
+        {
+            searchResults = new List<SearchResult>();
+            showResults = false;
+            selectedIndex = -1;
+            return;
+        }
+
+        // Debounce: aspetta 300ms prima di cercare
+        searchTimer?.Dispose();
+        searchTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                searchResults = await GlobalSearchService.SearchAsync(searchTerm);
+                showResults = true;
+                selectedIndex = -1;
+                StateHasChanged();
+            });
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private void NavigateToResult(SearchResult result)
+    {
+        showResults = false;
+        searchTerm = string.Empty;
+        Navigation.NavigateTo(result.NavigationUrl);
+    }
+
+    private void ClearSearch()
+    {
+        searchTerm = string.Empty;
+        searchResults = new List<SearchResult>();
+        showResults = false;
+        selectedIndex = -1;
+    }
+
+    private string GetBadgeColor(SearchResultType type)
+    {
+        return type switch
+        {
+            SearchResultType.Customer => "primary",
+            SearchResultType.Booking => "success",
+            SearchResultType.Boat => "info",
+            _ => "secondary"
+        };
+    }
+
+    private string GetTypeLabel(SearchResultType type)
+    {
+        return type switch
+        {
+            SearchResultType.Customer => "Cliente",
+            SearchResultType.Booking => "Prenotazione",
+            SearchResultType.Boat => "Natante",
+            _ => ""
+        };
+    }
+
+    private void NavigateToTodayBookings()
+    {
+        Navigation.NavigateTo($"/calendar?date={DateTime.Today:yyyy-MM-dd}&view=Giornaliera");
+    }
+
+    private void NavigateToBoatsOut()
+    {
+        Navigation.NavigateTo($"/calendar?date={DateTime.Today:yyyy-MM-dd}&view=Giornaliera");
+    }
+
+    private async Task LoadDashboardData()
+    {
+        var today = DateTime.Today;
+        var todayBookings = await BookingService.GetBookingsByDateAsync(today);
+        
+        todayBookingsCount = todayBookings.Count;
+        boatsOutCount = todayBookings
+            .SelectMany(b => b.BookingDates)
+            .Count(bd => !bd.IsReturned && bd.Date.Date == today);
+        
+        estimatedRevenue = todayBookings.Sum(b => b.ActualPrice);
+
+        upcomingReturns = todayBookings
+            .Where(b => b.BookingDates.Any(bd => !bd.IsReturned && bd.Date.Date == today))
+            .OrderBy(b => b.BookingDates.FirstOrDefault(bd => !bd.IsReturned)?.EndTime)
+            .Take(5)
+            .ToList();
+    }
+
+    private string GetReturnTime(Booking booking)
+    {
+        var bookingDate = booking.BookingDates.FirstOrDefault(bd => !bd.IsReturned);
+        return bookingDate?.EndTime?.ToString(@"hh\:mm") ?? "N/A";
+    }
+
+    private string GetStatusBadgeColor(BookingStatus status)
+    {
+        return status switch
+        {
+            BookingStatus.Opzionata => "secondary",
+            BookingStatus.Confermata => "primary",
+            BookingStatus.Pagata => "success",
+            BookingStatus.Ritirato => "warning",
+            BookingStatus.Rientrato => "info",
+            BookingStatus.Completata => "success",
+            BookingStatus.Annullata => "danger",
+            BookingStatus.InAttesa => "warning",
+            _ => "secondary"
+        };
+    }
+}

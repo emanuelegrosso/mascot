@@ -1,0 +1,253 @@
+@page "/skippers"
+@inject ISkipperService SkipperService
+@inject NavigationManager Navigation
+
+<PageTitle>Gestione Skipper</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Gestione Skipper</h2>
+        <button class="btn btn-primary" @onclick="ShowNewSkipperForm">
+            <span class="oi oi-plus"></span> Nuovo Skipper
+        </button>
+    </div>
+
+    <!-- Alert patenti in scadenza -->
+    @if (expiringSkippers.Any())
+    {
+        <div class="alert alert-warning">
+            <strong>⚠️ Attenzione:</strong> @expiringSkippers.Count skipper con patente in scadenza nei prossimi 30 giorni:
+            <ul class="mb-0 mt-2">
+                @foreach (var skipper in expiringSkippers)
+                {
+                    <li>@skipper.FullName - Patente scade il @skipper.DataScadenzaPatente.ToString("dd/MM/yyyy")</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <!-- Lista Skipper -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Telefono</th>
+                            <th>Email</th>
+                            <th>Patente Nautica</th>
+                            <th>Scadenza Patente</th>
+                            <th>Stato</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var skipper in skippers)
+                        {
+                            <tr class="@(skipper.PatenteInScadenza ? "table-warning" : "")">
+                                <td>@skipper.FullName</td>
+                                <td>@skipper.Telefono</td>
+                                <td>@(skipper.Email ?? "-")</td>
+                                <td>@skipper.NumeroPatenteNautica</td>
+                                <td>
+                                    @skipper.DataScadenzaPatente.ToString("dd/MM/yyyy")
+                                    @if (skipper.PatenteInScadenza)
+                                    {
+                                        <span class="badge bg-warning ms-1">⚠️ In scadenza</span>
+                                    }
+                                    @if (!skipper.PatenteValida)
+                                    {
+                                        <span class="badge bg-danger ms-1">❌ Scaduta</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (skipper.Attivo)
+                                    {
+                                        <span class="badge bg-success">Attivo</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Disattivo</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditSkipper(skipper)">
+                                        <span class="oi oi-pencil"></span> Modifica
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSkipper(skipper)">
+                                        <span class="oi oi-trash"></span> Elimina
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Nuovo/Modifica Skipper -->
+    @if (showForm)
+    {
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5>@(currentSkipper.Id > 0 ? "Modifica Skipper" : "Nuovo Skipper")</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Nome *</label>
+                        <input type="text" class="form-control" @bind="currentSkipper.Nome" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Cognome *</label>
+                        <input type="text" class="form-control" @bind="currentSkipper.Cognome" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Telefono *</label>
+                        <input type="tel" class="form-control" @bind="currentSkipper.Telefono" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="currentSkipper.Email" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Numero Documento *</label>
+                        <input type="text" class="form-control" @bind="currentSkipper.NumeroDocumento" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Tipo Documento *</label>
+                        <select class="form-select" @bind="currentSkipper.TipoDocumento">
+                            <option value="@DocumentType.CartaIdentita">Carta d'Identità</option>
+                            <option value="@DocumentType.Passaporto">Passaporto</option>
+                            <option value="@DocumentType.PatenteGuida">Patente di Guida</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Numero Patente Nautica *</label>
+                        <input type="text" class="form-control" @bind="currentSkipper.NumeroPatenteNautica" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Data Scadenza Patente *</label>
+                        <input type="date" class="form-control" @bind="currentSkipper.DataScadenzaPatente" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Note</label>
+                    <textarea class="form-control" rows="3" @bind="currentSkipper.Note"></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="currentSkipper.Attivo" />
+                        <label class="form-check-label fw-bold">Attivo</label>
+                    </div>
+                    <small class="text-muted">Solo gli skipper attivi con patente valida possono essere assegnati alle prenotazioni</small>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" @onclick="SaveSkipper">
+                        <span class="oi oi-check"></span> Salva
+                    </button>
+                    <button class="btn btn-secondary" @onclick="CancelForm">
+                        <span class="oi oi-x"></span> Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Skipper> skippers = new();
+    private List<Skipper> expiringSkippers = new();
+    private Skipper currentSkipper = new();
+    private bool showForm = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSkippers();
+    }
+
+    private async Task LoadSkippers()
+    {
+        skippers = await SkipperService.GetAllSkippersAsync();
+        expiringSkippers = await SkipperService.GetSkippersWithExpiringLicenseAsync(30);
+        StateHasChanged();
+    }
+
+    private void ShowNewSkipperForm()
+    {
+        currentSkipper = new Skipper
+        {
+            Attivo = true,
+            DataScadenzaPatente = DateTime.Today.AddYears(1)
+        };
+        showForm = true;
+    }
+
+    private void EditSkipper(Skipper skipper)
+    {
+        currentSkipper = new Skipper
+        {
+            Id = skipper.Id,
+            Nome = skipper.Nome,
+            Cognome = skipper.Cognome,
+            Telefono = skipper.Telefono,
+            Email = skipper.Email,
+            NumeroDocumento = skipper.NumeroDocumento,
+            TipoDocumento = skipper.TipoDocumento,
+            NumeroPatenteNautica = skipper.NumeroPatenteNautica,
+            DataScadenzaPatente = skipper.DataScadenzaPatente,
+            Note = skipper.Note,
+            Attivo = skipper.Attivo
+        };
+        showForm = true;
+    }
+
+    private async Task SaveSkipper()
+    {
+        if (string.IsNullOrWhiteSpace(currentSkipper.Nome) || 
+            string.IsNullOrWhiteSpace(currentSkipper.Cognome) ||
+            string.IsNullOrWhiteSpace(currentSkipper.Telefono))
+        {
+            return;
+        }
+
+        if (currentSkipper.Id > 0)
+        {
+            await SkipperService.UpdateSkipperAsync(currentSkipper);
+        }
+        else
+        {
+            await SkipperService.CreateSkipperAsync(currentSkipper);
+        }
+
+        await LoadSkippers();
+        showForm = false;
+        currentSkipper = new();
+    }
+
+    private void CancelForm()
+    {
+        showForm = false;
+        currentSkipper = new();
+    }
+
+    private async Task DeleteSkipper(Skipper skipper)
+    {
+        await SkipperService.DeleteSkipperAsync(skipper.Id);
+        await LoadSkippers();
+    }
+}

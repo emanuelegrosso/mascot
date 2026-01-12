@@ -1,0 +1,118 @@
+@page "/import"
+@inject AppDbContext DbContext
+@inject ICustomerService CustomerService
+
+<PageTitle>Importa Dati</PageTitle>
+
+<div class="container-fluid">
+    <h2 class="mb-4">Importa Dati da Notion/CSV/JSON</h2>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Importazione Dati</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Incolla dati JSON o CSV</label>
+                <textarea class="form-control" rows="10" @bind="importData" 
+                          placeholder='Incolla qui i dati da importare (formato JSON o CSV)&#10;&#10;Esempio JSON:&#10;{&#10;  "customers": [&#10;    {&#10;      "phone": "3331234567",&#10;      "email": "test@example.com",&#10;      "fullName": "Nome Cognome"&#10;    }&#10;  ]&#10;}'></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Tipo Importazione</label>
+                <select class="form-select" @bind="importType">
+                    <option value="json">JSON</option>
+                    <option value="csv">CSV</option>
+                    <option value="notion">Notion Export</option>
+                </select>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Nota:</strong> L'importazione aggiungerà nuovi record. I duplicati verranno gestiti in base al telefono (clienti) o nome (barche).
+            </div>
+
+            <button class="btn btn-primary" @onclick="ImportData" disabled="@(string.IsNullOrWhiteSpace(importData))">
+                <span class="oi oi-cloud-download"></span> Importa Dati
+            </button>
+
+            @if (!string.IsNullOrEmpty(importResult))
+            {
+                <div class="alert @(importResult.Contains("Errore") ? "alert-danger" : "alert-success") mt-3">
+                    @importResult
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5>Formato Dati Atteso</h5>
+        </div>
+        <div class="card-body">
+            <h6>JSON - Clienti</h6>
+            <pre class="bg-light p-3"><code>{
+  "customers": [
+    {
+      "phone": "3331234567",
+      "email": "email@example.com",
+      "fullName": "Nome Cognome",
+      "dateOfBirth": "1985-05-15",
+      "placeOfBirth": "Roma",
+      "address": "Via Roma 123",
+      "postalCode": "00100",
+      "city": "Roma",
+      "country": "Italia",
+      "taxCode": "RSSMRA85E15H501X",
+      "documentNumber": "AB1234567",
+      "documentType": "Carta d'Identità",
+      "hasDocument": "true",
+      "hasNauticalLicense": "false"
+    }
+  ]
+}</code></pre>
+
+            <h6 class="mt-3">JSON - Barche</h6>
+            <pre class="bg-light p-3"><code>{
+  "boats": [
+    {
+      "name": "Gommone L02",
+      "type": "Gommone",
+      "horsepower": 150,
+      "capacity": 6,
+      "dailyPrice": 25,
+      "dailyPriceHigh": 30,
+      "isActive": "true"
+    }
+  ]
+}</code></pre>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string importData = string.Empty;
+    private string importType = "json";
+    private string importResult = string.Empty;
+
+    private async Task ImportData()
+    {
+        if (string.IsNullOrWhiteSpace(importData))
+            return;
+
+        try
+        {
+            // TODO: Implementare parsing e importazione reale
+            // Per ora solo mockup
+            importResult = "Importazione completata con successo! (Funzionalità in sviluppo)";
+            
+            // Esempio di come usare NotionDataImporter:
+            // var customers = NotionDataImporter.CreateCustomersFromList(customerList);
+            // await DbContext.Customers.AddRangeAsync(customers);
+            // await DbContext.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            importResult = $"Errore durante l'importazione: {ex.Message}";
+        }
+    }
+}

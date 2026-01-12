@@ -1,0 +1,61 @@
+﻿<div class="top-row ps-3 navbar navbar-dark bg-primary">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">
+            <span class="oi oi-boat" aria-hidden="true"></span> Nautica Mascot
+        </a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="oi oi-home" aria-hidden="true"></span> Dashboard
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="booking">
+                <span class="oi oi-plus" aria-hidden="true"></span> Nuova Prenotazione
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="calendar">
+                <span class="oi oi-calendar" aria-hidden="true"></span> Calendario
+            </NavLink>
+        </div>
+    <div class="nav-item px-3">
+        <NavLink class="nav-link" href="customer">
+            <span class="oi oi-person" aria-hidden="true"></span> Scheda Cliente
+        </NavLink>
+    </div>
+    <div class="nav-item px-3">
+        <NavLink class="nav-link" href="skippers">
+            <span class="oi oi-briefcase" aria-hidden="true"></span> Gestione Skipper
+        </NavLink>
+    </div>
+    <div class="nav-item px-3">
+        <NavLink class="nav-link" href="prices">
+            <span class="oi oi-euro" aria-hidden="true"></span> Gestione Prezzi
+        </NavLink>
+    </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="import">
+                <span class="oi oi-cloud-download" aria-hidden="true"></span> Importa Dati
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}
