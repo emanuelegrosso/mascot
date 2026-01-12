@@ -99,92 +99,100 @@ app.MapFallbackToPage("/_Host");
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     
-    // In development, check if required tables exist, if not recreate database
-    if (app.Environment.IsDevelopment())
+    bool needsRecreation = false;
+    
+    // Check if database exists and validate schema compatibility
+    try
     {
-        try
+        if (db.Database.CanConnect())
         {
             db.Database.OpenConnection();
             using (var command = db.Database.GetDbConnection().CreateCommand())
             {
-                // Check if Skippers table exists
-                command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='Skippers'";
-                var result = command.ExecuteScalar();
-                var skippersTableExists = Convert.ToInt32(result) > 0;
-                
-                // Check if BoatPrices table exists
-                command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='BoatPrices'";
-                result = command.ExecuteScalar();
-                var boatPricesTableExists = Convert.ToInt32(result) > 0;
-                
-                // Check if Damages table exists
-                command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='Damages'";
-                result = command.ExecuteScalar();
-                var damagesTableExists = Convert.ToInt32(result) > 0;
-                
-                bool needsRecreation = false;
-                
-                // Check if SkipperId column exists in Bookings
-                if (skippersTableExists)
+                // Validate critical columns that must exist for current schema version
+                var criticalColumns = new Dictionary<string, string[]>
                 {
-                    command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('Bookings') WHERE name='SkipperId'";
-                    var columnResult = command.ExecuteScalar();
-                    var columnExists = Convert.ToInt32(columnResult) > 0;
+                    { "Boats", new[] { "Id", "Name", "Code", "Type", "Horsepower", "Capacity", "IsActive" } },
+                    { "Bookings", new[] { "Id", "CustomerId", "BoatId", "SkipperId", "AccontoLasciato", "Status" } },
+                    { "Customers", new[] { "Id", "Phone" } },
+                    { "Skippers", new[] { "Id", "Nome", "Cognome", "Telefono", "Attivo" } },
+                    { "BookingDates", new[] { "Id", "BookingId", "Date" } },
+                    { "BoatPrices", new[] { "Id", "BoatId", "Month", "Price" } }
+                };
+                
+                // Check if all critical tables exist
+                foreach (var table in criticalColumns.Keys)
+                {
+                    command.CommandText = $"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table}'";
+                    var tableExists = Convert.ToInt32(command.ExecuteScalar()) > 0;
                     
-                    if (!columnExists)
+                    if (!tableExists)
                     {
+                        logger.LogWarning("Table '{Table}' does not exist. Database will be recreated.", table);
                         needsRecreation = true;
+                        break;
                     }
-                }
-                else
-                {
-                    needsRecreation = true;
-                }
-                
-                // Check if payment columns exist in Bookings
-                command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('Bookings') WHERE name='AccontoLasciato'";
-                var accontoColumnResult = command.ExecuteScalar();
-                var accontoColumnExists = Convert.ToInt32(accontoColumnResult) > 0;
-                
-                if (!accontoColumnExists)
-                {
-                    needsRecreation = true;
-                }
-                
-                // If BoatPrices table doesn't exist, recreate database
-                if (!boatPricesTableExists)
-                {
-                    needsRecreation = true;
-                }
-                
-                // If Damages table doesn't exist, recreate database
-                if (!damagesTableExists)
-                {
-                    needsRecreation = true;
-                }
-                
-                db.Database.CloseConnection();
-                
-                if (needsRecreation)
-                {
-                    db.Database.EnsureDeleted();
+                    
+                    // Check if all critical columns exist in this table
+                    foreach (var column in criticalColumns[table])
+                    {
+                        command.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name='{column}'";
+                        var columnExists = Convert.ToInt32(command.ExecuteScalar()) > 0;
+                        
+                        if (!columnExists)
+                        {
+                            logger.LogWarning("Column '{Column}' does not exist in table '{Table}'. Database will be recreated.", column, table);
+                            needsRecreation = true;
+                            break;
+                        }
+                    }
+                    
+                    if (needsRecreation) break;
                 }
             }
+            db.Database.CloseConnection();
         }
-        catch
+    }
+    catch (Exception ex)
+    {
+        // If validation fails (e.g., schema mismatch), recreate database
+        logger.LogWarning(ex, "Database schema validation failed. Database will be recreated.");
+        try { db.Database.CloseConnection(); } catch { }
+        needsRecreation = true;
+    }
+    
+    // Recreate database if schema is incompatible
+    if (needsRecreation)
+    {
+        try
         {
-            // If check fails, just recreate
-            try { db.Database.CloseConnection(); } catch { }
+            logger.LogInformation("Recreating database due to schema incompatibility...");
             db.Database.EnsureDeleted();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error deleting database. It may be locked or in use.");
+            // Continue anyway - EnsureCreated will handle it
         }
     }
     
-    db.Database.EnsureCreated();
+    // Ensure database is created with current schema
+    try
+    {
+        db.Database.EnsureCreated();
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error creating database. Application may not work correctly.");
+        throw;
+    }
     
     // Seed data if database is empty
     if (!db.Customers.Any() && !db.Boats.Any() && !db.Skippers.Any() && !db.BoatPrices.Any())
     {
+        logger.LogInformation("Seeding initial data...");
         SeedData.Initialize(db);
     }
     else

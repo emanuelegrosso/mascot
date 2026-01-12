@@ -89,7 +89,7 @@ public class GlobalSearchService : IGlobalSearchService
                 Title = boat.Name,
                 Subtitle = $"{boat.Horsepower} CV | {boat.Capacity} posti | {boat.Type}",
                 Type = SearchResultType.Boat,
-                Icon = boat.Type == BoatType.Gommone ? "oi-boat" : "oi-star",
+                Icon = "oi-boat",
                 NavigationUrl = $"/booking?boatId={boat.Id}"
             });
         }
