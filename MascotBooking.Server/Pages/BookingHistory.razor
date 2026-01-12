@@ -1,0 +1,255 @@
+@page "/booking-history"
+@inject IBookingService BookingService
+@inject AppDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Storico Prenotazioni</PageTitle>
+
+<div class="container-fluid">
+    <h2 class="mb-4">Storico Prenotazioni</h2>
+
+    <!-- Filtri -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h6 class="mb-0">Filtri</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Stato</label>
+                    <select class="form-select form-select-sm" @bind="filterStatus" @onchange="OnFilterChanged">
+                        <option value="">Tutti</option>
+                        <option value="Completata">Completate</option>
+                        <option value="Annullata">Annullate</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Cliente</label>
+                    <input type="text" class="form-control form-control-sm" @bind="filterCustomerName" @oninput="OnFilterChanged" placeholder="Cerca cliente..." />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Da Data</label>
+                    <input type="date" class="form-control form-control-sm" @bind="filterStartDate" @onchange="OnFilterChanged" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">A Data</label>
+                    <input type="date" class="form-control form-control-sm" @bind="filterEndDate" @onchange="OnFilterChanged" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-select form-select-sm" @bind="filterBoatType" @onchange="OnFilterChanged">
+                        <option value="">Tutti</option>
+                        <option value="Gommone">Gommoni</option>
+                        <option value="Escursione">Escursioni</option>
+                    </select>
+                </div>
+            </div>
+            @if (HasActiveFilters())
+            {
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">
+                        <span class="oi oi-x"></span> Rimuovi Filtri
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Lista Prenotazioni -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">Prenotazioni (@filteredBookings.Count)</h6>
+        </div>
+        <div class="card-body">
+            @if (filteredBookings.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Data</th>
+                                <th>Cliente</th>
+                                <th>Natante</th>
+                                <th>Tipo</th>
+                                <th>Persone</th>
+                                <th>Prezzo</th>
+                                <th>Stato</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var booking in filteredBookings)
+                            {
+                                <tr>
+                                    <td>@booking.Id</td>
+                                    <td>
+                                        @if (booking.BookingDates.Any())
+                                        {
+                                            @string.Join(", ", booking.BookingDates.Select(bd => bd.Date.ToString("dd/MM/yyyy")))
+                                        }
+                                    </td>
+                                    <td>@booking.Customer.FullName</td>
+                                    <td>@booking.Boat.Name</td>
+                                    <td>
+                                        <span class="badge @(booking.Type == BookingType.Escursione ? "bg-purple" : "bg-primary")">
+                                            @booking.Type
+                                        </span>
+                                        @if (booking.Type == BookingType.Gommone)
+                                        {
+                                            <text> - @booking.Boat.Horsepower CV</text>
+                                        }
+                                    </td>
+                                    <td>@(booking.Adults + (booking.Children ?? 0))</td>
+                                    <td>€@booking.ActualPrice.ToString("F2")</td>
+                                    <td>
+                                        <span class="badge bg-@GetStatusBadgeColor(booking.Status)">
+                                            @booking.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                @onclick="() => ViewBooking(booking)">
+                                            Dettagli
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">Nessuna prenotazione trovata</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Booking> allBookings = new();
+    private List<Booking> filteredBookings = new();
+    
+    // Filtri
+    private string? filterStatus = null;
+    private string? filterCustomerName = null;
+    private DateTime? filterStartDate = null;
+    private DateTime? filterEndDate = null;
+    private string? filterBoatType = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        // Carica solo prenotazioni completate o annullate
+        allBookings = await DbContext.Bookings
+            .Include(b => b.Customer)
+            .Include(b => b.Boat)
+            .Include(b => b.Skipper)
+            .Include(b => b.BookingDates)
+            .Where(b => b.Status == BookingStatus.Completata || b.Status == BookingStatus.Annullata)
+            .OrderByDescending(b => b.BookingDates.OrderByDescending(bd => bd.Date).FirstOrDefault() != null 
+                ? b.BookingDates.OrderByDescending(bd => bd.Date).First().Date 
+                : DateTime.MinValue)
+            .ToListAsync();
+        
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        var filtered = allBookings.AsEnumerable();
+        
+        // Filtro stato
+        if (!string.IsNullOrEmpty(filterStatus) && Enum.TryParse<BookingStatus>(filterStatus, out BookingStatus status))
+        {
+            filtered = filtered.Where(b => b.Status == status);
+        }
+        
+        // Filtro cliente
+        if (!string.IsNullOrEmpty(filterCustomerName))
+        {
+            var searchTerm = filterCustomerName.ToLower();
+            filtered = filtered.Where(b => 
+                (b.Customer.FullName != null && b.Customer.FullName.ToLower().Contains(searchTerm)) ||
+                (b.Customer.Phone != null && b.Customer.Phone.Contains(searchTerm)) ||
+                (b.Customer.Email != null && b.Customer.Email.ToLower().Contains(searchTerm))
+            );
+        }
+        
+        // Filtro date
+        if (filterStartDate.HasValue)
+        {
+            filtered = filtered.Where(b => b.BookingDates.Any(bd => bd.Date.Date >= filterStartDate.Value.Date));
+        }
+        if (filterEndDate.HasValue)
+        {
+            filtered = filtered.Where(b => b.BookingDates.Any(bd => bd.Date.Date <= filterEndDate.Value.Date));
+        }
+        
+        // Filtro tipo natante
+        if (!string.IsNullOrEmpty(filterBoatType))
+        {
+            if (filterBoatType == "Gommone")
+            {
+                filtered = filtered.Where(b => b.Type == BookingType.Gommone);
+            }
+            else if (filterBoatType == "Escursione")
+            {
+                filtered = filtered.Where(b => b.Type == BookingType.Escursione);
+            }
+        }
+        
+        filteredBookings = filtered.ToList();
+    }
+
+    private async Task OnFilterChanged()
+    {
+        ApplyFilters();
+        StateHasChanged();
+    }
+
+    private bool HasActiveFilters()
+    {
+        return !string.IsNullOrEmpty(filterStatus) ||
+               !string.IsNullOrEmpty(filterCustomerName) ||
+               !string.IsNullOrEmpty(filterBoatType) ||
+               filterStartDate.HasValue ||
+               filterEndDate.HasValue;
+    }
+
+    private async Task ClearFilters()
+    {
+        filterStatus = null;
+        filterCustomerName = null;
+        filterBoatType = null;
+        filterStartDate = null;
+        filterEndDate = null;
+        ApplyFilters();
+        StateHasChanged();
+    }
+
+    private string GetStatusBadgeColor(BookingStatus status)
+    {
+        return status switch
+        {
+            BookingStatus.Completata => "success",
+            BookingStatus.Annullata => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private void ViewBooking(Booking booking)
+    {
+        // Naviga al calendario con la data della prenotazione
+        if (booking.BookingDates.Any())
+        {
+            var firstDate = booking.BookingDates.OrderBy(bd => bd.Date).First().Date;
+            Navigation.NavigateTo($"/calendar?date={firstDate:yyyy-MM-dd}&bookingId={booking.Id}");
+        }
+    }
+}

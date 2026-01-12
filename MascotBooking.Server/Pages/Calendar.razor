@@ -19,6 +19,55 @@
         </div>
     }
 
+    <!-- Filtri -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h6 class="mb-0">Filtri</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Tipo Natante</label>
+                    <select class="form-select form-select-sm" @bind="filterBoatType" @onchange="OnFilterChanged">
+                        <option value="">Tutti</option>
+                        <option value="Gommone">Gommoni</option>
+                        <option value="Escursione">Escursioni</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Cliente</label>
+                    <input type="text" class="form-control form-control-sm" @bind="filterCustomerName" @oninput="OnFilterChanged" placeholder="Cerca cliente..." />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Stato</label>
+                    <select class="form-select form-select-sm" @bind="filterStatus" @onchange="OnFilterChanged">
+                        <option value="">Tutti</option>
+                        @foreach (var status in Enum.GetValues<BookingStatus>())
+                        {
+                            <option value="@status.ToString()">@status</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Da Data</label>
+                    <input type="date" class="form-control form-control-sm" @bind="filterStartDate" @onchange="OnFilterChanged" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">A Data</label>
+                    <input type="date" class="form-control form-control-sm" @bind="filterEndDate" @onchange="OnFilterChanged" />
+                </div>
+            </div>
+            @if (HasActiveFilters())
+            {
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">
+                        <span class="oi oi-x"></span> Rimuovi Filtri
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+
     <!-- Selezione Vista -->
     <div class="card mb-3">
         <div class="card-body">
@@ -177,6 +226,19 @@
                                                         }
                                                     </select>
                                                     <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span>
+                                                    @if (booking.Status != BookingStatus.Pagata && booking.Status != BookingStatus.Completata && booking.Status != BookingStatus.Annullata)
+                                                    {
+                                                        <button class="btn btn-sm btn-success" 
+                                                                @onclick="@(() => OnPaymentClicked(booking))"
+                                                                @onclick:stopPropagation="true"
+                                                                title="Segna come pagato">
+                                                            💰 Pagato
+                                                        </button>
+                                                    }
+                                                    else if (booking.Status == BookingStatus.Pagata)
+                                                    {
+                                                        <span class="badge bg-success">✅ Pagato</span>
+                                                    }
                                                 </div>
                                             </div>
                                             <p class="mb-1">
@@ -199,6 +261,15 @@
                                                     }
                                                 }
                                                 | Prezzo: €@booking.ActualPrice.ToString("F2")
+                                                @if (booking.AccontoLasciato && booking.AccontoVersato.HasValue)
+                                                {
+                                                    var residuo = booking.ActualPrice - booking.AccontoVersato.Value;
+                                                    <text> | <span class="badge bg-warning">Acconto: €@booking.AccontoVersato.Value.ToString("F2")</span></text>
+                                                    @if (residuo > 0)
+                                                    {
+                                                        <text> | <span class="badge bg-info">Residuo: €@residuo.ToString("F2")</span></text>
+                                                    }
+                                                }
                                             </small>
                                         </div>
                                     }
@@ -256,6 +327,19 @@
                                                         }
                                                     </select>
                                                     <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span>
+                                                    @if (booking.Status != BookingStatus.Pagata && booking.Status != BookingStatus.Completata && booking.Status != BookingStatus.Annullata)
+                                                    {
+                                                        <button class="btn btn-sm btn-success" 
+                                                                @onclick="@(() => OnPaymentClicked(booking))"
+                                                                @onclick:stopPropagation="true"
+                                                                title="Segna come pagato">
+                                                            💰 Pagato
+                                                        </button>
+                                                    }
+                                                    else if (booking.Status == BookingStatus.Pagata)
+                                                    {
+                                                        <span class="badge bg-success">✅ Pagato</span>
+                                                    }
                                                 </div>
                                             </div>
                                             <p class="mb-1">
@@ -278,6 +362,15 @@
                                                     }
                                                 }
                                                 | Prezzo: €@booking.ActualPrice.ToString("F2")
+                                                @if (booking.AccontoLasciato && booking.AccontoVersato.HasValue)
+                                                {
+                                                    var residuo = booking.ActualPrice - booking.AccontoVersato.Value;
+                                                    <text> | <span class="badge bg-warning">Acconto: €@booking.AccontoVersato.Value.ToString("F2")</span></text>
+                                                    @if (residuo > 0)
+                                                    {
+                                                        <text> | <span class="badge bg-info">Residuo: €@residuo.ToString("F2")</span></text>
+                                                    }
+                                                }
                                             </small>
                                         </div>
                                     }
@@ -335,6 +428,19 @@
                                                         }
                                                     </select>
                                                     <span class="badge bg-@GetStatusBadgeColor(booking.Status)">@booking.Status</span>
+                                                    @if (booking.Status != BookingStatus.Pagata && booking.Status != BookingStatus.Completata && booking.Status != BookingStatus.Annullata)
+                                                    {
+                                                        <button class="btn btn-sm btn-success" 
+                                                                @onclick="@(() => OnPaymentClicked(booking))"
+                                                                @onclick:stopPropagation="true"
+                                                                title="Segna come pagato">
+                                                            💰 Pagato
+                                                        </button>
+                                                    }
+                                                    else if (booking.Status == BookingStatus.Pagata)
+                                                    {
+                                                        <span class="badge bg-success">✅ Pagato</span>
+                                                    }
                                                 </div>
                                             </div>
                                             <p class="mb-1">
@@ -357,6 +463,15 @@
                                                     }
                                                 }
                                                 | Prezzo: €@booking.ActualPrice.ToString("F2")
+                                                @if (booking.AccontoLasciato && booking.AccontoVersato.HasValue)
+                                                {
+                                                    var residuo = booking.ActualPrice - booking.AccontoVersato.Value;
+                                                    <text> | <span class="badge bg-warning">Acconto: €@booking.AccontoVersato.Value.ToString("F2")</span></text>
+                                                    @if (residuo > 0)
+                                                    {
+                                                        <text> | <span class="badge bg-info">Residuo: €@residuo.ToString("F2")</span></text>
+                                                    }
+                                                }
                                             </small>
                                         </div>
                                     }
@@ -609,7 +724,23 @@
                     }
                     <p><strong>Date:</strong> @string.Join(", ", selectedBooking.BookingDates.Select(bd => bd.Date.ToString("dd/MM/yyyy")))</p>
                     <p><strong>Persone:</strong> @selectedBooking.Adults adulti @(selectedBooking.Children.HasValue ? $"+ {selectedBooking.Children} bambini" : "")</p>
-                    <p><strong>Prezzo:</strong> €@selectedBooking.ActualPrice.ToString("F2")</p>
+                    <p><strong>Prezzo Standard:</strong> €@selectedBooking.StandardPrice.ToString("F2")</p>
+                    <p><strong>Prezzo Reale:</strong> €@selectedBooking.ActualPrice.ToString("F2")</p>
+                    @if (selectedBooking.AccontoLasciato && selectedBooking.AccontoVersato.HasValue)
+                    {
+                        var residuo = selectedBooking.ActualPrice - selectedBooking.AccontoVersato.Value;
+                        <p>
+                            <strong>Acconto:</strong> <span class="badge bg-warning">€@selectedBooking.AccontoVersato.Value.ToString("F2")</span>
+                            @if (residuo > 0)
+                            {
+                                <text> | <strong>Residuo:</strong> <span class="badge bg-info">€@residuo.ToString("F2")</span></text>
+                            }
+                            else
+                            {
+                                <text> | <span class="badge bg-success">Saldato</span></text>
+                            }
+                        </p>
+                    }
                     <p><strong>Stato:</strong> 
                         <select class="form-select d-inline-block" style="width: auto; display: inline-block !important; max-width: 200px;"
                                 value="@selectedBooking.Status.ToString()"
@@ -622,6 +753,18 @@
                         </select>
                         <span class="badge bg-@GetStatusBadgeColor(selectedBooking.Status) ms-2">@selectedBooking.Status</span>
                     </p>
+                    @if (selectedBooking.Status != BookingStatus.Pagata && selectedBooking.Status != BookingStatus.Completata && selectedBooking.Status != BookingStatus.Annullata)
+                    {
+                        <p>
+                            <button type="button" class="btn btn-success" @onclick="async () => { await OnPaymentClicked(selectedBooking); CloseDetail(); }">
+                                💰 Segna come Pagato
+                            </button>
+                        </p>
+                    }
+                    else if (selectedBooking.Status == BookingStatus.Pagata)
+                    {
+                        <p><span class="badge bg-success">✅ Pagamento confermato</span></p>
+                    }
                     @if (!string.IsNullOrEmpty(selectedBooking.Notes))
                     {
                         <p><strong>Note:</strong> @selectedBooking.Notes</p>
@@ -643,6 +786,7 @@
     private int currentYear = DateTime.Today.Year;
     private List<Booking> dailyBookings = new();
     private List<Booking> weeklyBookings = new();
+    private List<Booking> allBookings = new(); // Tutte le prenotazioni per i filtri
     private Dictionary<DateTime, int> monthlyCounts = new();
     private Dictionary<int, int> annualCounts = new();
     private List<Boat> allBoats = new();
@@ -650,6 +794,13 @@
     private bool showLegend = false;
     private string? statusUpdateMessage = null;
     private bool statusUpdateSuccess = false;
+    
+    // Filtri
+    private string? filterBoatType = null;
+    private string? filterCustomerName = null;
+    private string? filterStatus = null;
+    private DateTime? filterStartDate = null;
+    private DateTime? filterEndDate = null;
     
     // Totali barche per categoria (calcolati una volta)
     private int barcheConPatenteTotali = 0;
@@ -715,9 +866,10 @@
 
     private async Task LoadData()
     {
+        // Carica tutte le prenotazioni per applicare i filtri
         if (viewType == CalendarViewType.Giornaliera)
         {
-            dailyBookings = await BookingService.GetBookingsByDateAsync(currentDate);
+            allBookings = await BookingService.GetBookingsByDateAsync(currentDate);
         }
         else if (viewType == CalendarViewType.Mensile)
         {
@@ -725,20 +877,104 @@
             // Carica anche le prenotazioni per la vista mensile interattiva
             var startDate = new DateTime(currentMonth.Year, currentMonth.Month, 1);
             var endDate = startDate.AddMonths(1).AddDays(-1);
-            dailyBookings = await BookingService.GetBookingsByDateRangeAsync(startDate, endDate);
+            allBookings = await BookingService.GetBookingsByDateRangeAsync(startDate, endDate);
         }
         else if (viewType == CalendarViewType.Settimanale)
         {
-            weeklyBookings = await BookingService.GetBookingsByDateRangeAsync(weekStart, weekStart.AddDays(6));
-        }
-        else if (viewType == CalendarViewType.Mensile)
-        {
-            monthlyCounts = await CalendarService.GetMonthlyViewAsync(currentMonth);
+            allBookings = await BookingService.GetBookingsByDateRangeAsync(weekStart, weekStart.AddDays(6));
         }
         else if (viewType == CalendarViewType.Annuale)
         {
             annualCounts = await CalendarService.GetAnnualViewAsync(currentYear);
+            // Per la vista annuale, carica tutte le prenotazioni dell'anno
+            var startDate = new DateTime(currentYear, 1, 1);
+            var endDate = new DateTime(currentYear, 12, 31);
+            allBookings = await BookingService.GetBookingsByDateRangeAsync(startDate, endDate);
         }
+        
+        // Applica filtri
+        ApplyFilters();
+    }
+    
+    private void ApplyFilters()
+    {
+        var filtered = allBookings.AsEnumerable();
+        
+        // Filtro tipo natante
+        if (!string.IsNullOrEmpty(filterBoatType))
+        {
+            if (filterBoatType == "Gommone")
+            {
+                filtered = filtered.Where(b => b.Type == BookingType.Gommone);
+            }
+            else if (filterBoatType == "Escursione")
+            {
+                filtered = filtered.Where(b => b.Type == BookingType.Escursione);
+            }
+        }
+        
+        // Filtro cliente
+        if (!string.IsNullOrEmpty(filterCustomerName))
+        {
+            var searchTerm = filterCustomerName.ToLower();
+            filtered = filtered.Where(b => 
+                (b.Customer.FullName != null && b.Customer.FullName.ToLower().Contains(searchTerm)) ||
+                (b.Customer.Phone != null && b.Customer.Phone.Contains(searchTerm)) ||
+                (b.Customer.Email != null && b.Customer.Email.ToLower().Contains(searchTerm))
+            );
+        }
+        
+        // Filtro stato
+        if (!string.IsNullOrEmpty(filterStatus) && Enum.TryParse<BookingStatus>(filterStatus, out BookingStatus status))
+        {
+            filtered = filtered.Where(b => b.Status == status);
+        }
+        
+        // Filtro date
+        if (filterStartDate.HasValue)
+        {
+            filtered = filtered.Where(b => b.BookingDates.Any(bd => bd.Date.Date >= filterStartDate.Value.Date));
+        }
+        if (filterEndDate.HasValue)
+        {
+            filtered = filtered.Where(b => b.BookingDates.Any(bd => bd.Date.Date <= filterEndDate.Value.Date));
+        }
+        
+        // Applica i risultati filtrati
+        if (viewType == CalendarViewType.Giornaliera)
+        {
+            dailyBookings = filtered.ToList();
+        }
+        else if (viewType == CalendarViewType.Settimanale)
+        {
+            weeklyBookings = filtered.ToList();
+        }
+    }
+    
+    private async Task OnFilterChanged()
+    {
+        await LoadData();
+        StateHasChanged();
+    }
+    
+    private bool HasActiveFilters()
+    {
+        return !string.IsNullOrEmpty(filterBoatType) ||
+               !string.IsNullOrEmpty(filterCustomerName) ||
+               !string.IsNullOrEmpty(filterStatus) ||
+               filterStartDate.HasValue ||
+               filterEndDate.HasValue;
+    }
+    
+    private async Task ClearFilters()
+    {
+        filterBoatType = null;
+        filterCustomerName = null;
+        filterStatus = null;
+        filterStartDate = null;
+        filterEndDate = null;
+        await LoadData();
+        StateHasChanged();
     }
 
     private async Task ChangeView(CalendarViewType newView)
@@ -835,6 +1071,7 @@
             BookingStatus.Pagata => "success", // Verde
             BookingStatus.Ritirato => "warning", // Arancione
             BookingStatus.Rientrato => "info", // Viola (usando info che è blu chiaro, simile a viola)
+            BookingStatus.Riconsegnato => "info", // Stesso colore di Rientrato
             BookingStatus.Completata => "success", // Verde scuro (stesso di success ma più scuro nel CSS)
             BookingStatus.Annullata => "danger", // Rosso
             BookingStatus.InAttesa => "warning", // Giallo (mantenuto per retrocompatibilità)
@@ -869,6 +1106,30 @@
         }
     }
 
+    private async Task OnPaymentClicked(Booking booking)
+    {
+        try
+        {
+            await BookingService.UpdateBookingStatusAsync(booking.Id, BookingStatus.Pagata);
+            booking.Status = BookingStatus.Pagata;
+            statusUpdateMessage = "Prenotazione segnata come pagata";
+            statusUpdateSuccess = true;
+            await LoadData(); // Ricarica dati
+            StateHasChanged();
+            
+            // Nascondi messaggio dopo 2 secondi
+            await Task.Delay(2000);
+            statusUpdateMessage = null;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            statusUpdateMessage = $"Errore: {ex.Message}";
+            statusUpdateSuccess = false;
+            StateHasChanged();
+        }
+    }
+
     private List<BookingStatus> GetValidStatusesForBooking(Booking booking)
     {
         var currentStatus = booking.Status;
@@ -896,10 +1157,11 @@
                 break;
 
             case BookingStatus.Ritirato:
-                validTransitions.Add(BookingStatus.Rientrato);
+                validTransitions.AddRange(new[] { BookingStatus.Rientrato, BookingStatus.Riconsegnato });
                 break;
 
             case BookingStatus.Rientrato:
+            case BookingStatus.Riconsegnato:
                 validTransitions.Add(BookingStatus.Completata);
                 break;
 

@@ -12,6 +12,9 @@ public class Boat
     [StringLength(100)]
     public string Name { get; set; } = string.Empty;
 
+    [StringLength(20)]
+    public string? Code { get; set; } // Codice natante (es. L01, L02, Enteara, Riva)
+
     [Required]
     public BoatType Type { get; set; }
 

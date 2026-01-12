@@ -13,6 +13,7 @@ public enum BookingStatus
     Pagata,
     Ritirato,
     Rientrato,
+    Riconsegnato, // Sinonimo di Rientrato, aggiunto per compatibilità con nuove specifiche
     Completata,
     Annullata,
     InAttesa // Mantenuto per retrocompatibilità
